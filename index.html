@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b1116" />
+    <title>SkyDashboard</title>
+    <link rel="manifest" href="manifest.json" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="backdrop"></div>
+    <div class="app">
+      <header>
+        <div class="title-group">
+          <h1>SkyDashboard</h1>
+          <p>
+            Live snapshots of the Sun and Moon for your current location,
+            powered by Astronomy Engine.
+          </p>
+        </div>
+        <div class="controls">
+          <button id="get-location">Get Location</button>
+          <button id="toggle-time-format" type="button">Time: 12h</button>
+          <div class="manual-entry hidden" id="manual-entry">
+            <div class="manual-entry-row">
+              <input
+                id="city-input"
+                type="text"
+                placeholder="Enter city (e.g., Madison, WI)"
+                autocomplete="address-level2"
+              />
+              <button id="use-city" type="button">Use City</button>
+            </div>
+            <div class="manual-hint">No GPS? Enter your city.</div>
+          </div>
+          <div class="status" id="location-status">Location not set yet.</div>
+        </div>
+      </header>
+
+      <main class="grid">
+        <section class="card" aria-labelledby="moon-title">
+          <h2 id="moon-title">Moon</h2>
+          <div class="phase">
+            <div class="moon-visual" id="moon-visual" style="--illum: 0.5"></div>
+            <div class="phase-details">
+              <h3 id="moon-phase-label">--</h3>
+              <p id="moon-illumination">Illumination: --</p>
+            </div>
+          </div>
+          <table class="data-table" id="moon-table">
+            <tbody>
+              <tr>
+                <td>Moonrise</td>
+                <td><strong id="moonrise-time">--</strong></td>
+                <td><strong id="moonrise-countdown" class="countdown">--</strong></td>
+                <td><strong id="moonrise-delta" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Moonset</td>
+                <td><strong id="moonset-time">--</strong></td>
+                <td><strong id="moonset-countdown" class="countdown">--</strong></td>
+                <td><strong id="moonset-delta" class="delta">--</strong></td>
+              </tr>
+              <tr data-fixed="middle">
+                <td>New Moon</td>
+                <td><strong id="moon-days-new">--</strong></td>
+                <td><strong class="countdown placeholder">--</strong></td>
+                <td><strong class="delta placeholder">--</strong></td>
+              </tr>
+              <tr data-fixed="middle">
+                <td>Full Moon</td>
+                <td><strong id="moon-days-full">--</strong></td>
+                <td><strong class="countdown placeholder">--</strong></td>
+                <td><strong class="delta placeholder">--</strong></td>
+              </tr>
+              <tr data-fixed="bottom">
+                <td>Altitude</td>
+                <td><strong id="moon-altitude">--</strong></td>
+                <td><strong class="countdown placeholder">--</strong></td>
+                <td><strong class="delta placeholder">--</strong></td>
+              </tr>
+              <tr data-fixed="bottom">
+                <td>Azimuth</td>
+                <td><strong id="moon-azimuth">--</strong></td>
+                <td><strong class="countdown placeholder">--</strong></td>
+                <td><strong class="delta placeholder">--</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="card" aria-labelledby="sun-title">
+          <h2 id="sun-title">Sun</h2>
+          <table class="data-table" id="sun-table">
+            <tbody>
+              <tr>
+                <td>Sunrise</td>
+                <td><strong id="sunrise-time">--</strong></td>
+                <td><strong id="sunrise-countdown" class="countdown">--</strong></td>
+                <td><strong id="sunrise-delta" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Sunset</td>
+                <td><strong id="sunset-time">--</strong></td>
+                <td><strong id="sunset-countdown" class="countdown">--</strong></td>
+                <td><strong id="sunset-delta" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Civil Dusk</td>
+                <td><strong id="civil-dusk-time">--</strong></td>
+                <td><strong id="civil-dusk-countdown" class="countdown">--</strong></td>
+                <td><strong id="civil-dusk-delta" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Nautical Dusk</td>
+                <td><strong id="nautical-dusk-time">--</strong></td>
+                <td><strong id="nautical-dusk-countdown" class="countdown">--</strong></td>
+                <td><strong id="nautical-dusk-delta" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Astronomical Dusk</td>
+                <td><strong id="astro-dusk-time">--</strong></td>
+                <td><strong id="astro-dusk-countdown" class="countdown">--</strong></td>
+                <td><strong id="astro-dusk-delta" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Astronomical Dawn</td>
+                <td><strong id="astro-dawn-time">--</strong></td>
+                <td><strong id="astro-dawn-countdown" class="countdown">--</strong></td>
+                <td><strong id="astro-dawn-delta" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Nautical Dawn</td>
+                <td><strong id="nautical-dawn-time">--</strong></td>
+                <td><strong id="nautical-dawn-countdown" class="countdown">--</strong></td>
+                <td><strong id="nautical-dawn-delta" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Civil Dawn</td>
+                <td><strong id="civil-dawn-time">--</strong></td>
+                <td><strong id="civil-dawn-countdown" class="countdown">--</strong></td>
+                <td><strong id="civil-dawn-delta" class="delta">--</strong></td>
+              </tr>
+              <tr data-fixed="middle">
+                <td>Summer Solstice</td>
+                <td><strong id="sun-solstice-summer">--</strong></td>
+                <td><strong class="countdown placeholder">--</strong></td>
+                <td><strong class="delta placeholder">--</strong></td>
+              </tr>
+              <tr data-fixed="middle">
+                <td>Winter Solstice</td>
+                <td><strong id="sun-solstice-winter">--</strong></td>
+                <td><strong class="countdown placeholder">--</strong></td>
+                <td><strong class="delta placeholder">--</strong></td>
+              </tr>
+              <tr data-fixed="bottom">
+                <td>Altitude</td>
+                <td><strong id="sun-altitude">--</strong></td>
+                <td><strong class="countdown placeholder">--</strong></td>
+                <td><strong class="delta placeholder">--</strong></td>
+              </tr>
+              <tr data-fixed="bottom">
+                <td>Azimuth</td>
+                <td><strong id="sun-azimuth">--</strong></td>
+                <td><strong class="countdown placeholder">--</strong></td>
+                <td><strong class="delta placeholder">--</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="card" aria-labelledby="location-title">
+          <h2 id="location-title">Observer <span>Cache</span></h2>
+          <table class="data-table" id="observer-table">
+            <tbody>
+              <tr data-fixed="top">
+                <td>City</td>
+                <td><strong id="city">--</strong></td>
+                <td><strong class="countdown placeholder">--</strong></td>
+              </tr>
+              <tr data-fixed="top">
+                <td>Latitude</td>
+                <td><strong id="lat">--</strong></td>
+                <td><strong class="countdown placeholder">--</strong></td>
+              </tr>
+              <tr data-fixed="top">
+                <td>Longitude</td>
+                <td><strong id="lon">--</strong></td>
+                <td><strong class="countdown placeholder">--</strong></td>
+              </tr>
+              <tr data-fixed="top">
+                <td>Cached</td>
+                <td><strong id="cached-at">--</strong></td>
+                <td><strong class="countdown placeholder">--</strong></td>
+              </tr>
+              <tr data-fixed="top">
+                <td>Current Phase</td>
+                <td><strong id="twilight-phase">--</strong></td>
+                <td><strong class="countdown placeholder">--</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      </main>
+
+      <div class="footer"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
