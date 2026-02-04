@@ -1,11 +1,14 @@
-const CACHE_NAME = "skydashboard-v1";
+const CACHE_NAME = "skydashboard-v2";
 const PRECACHE = [
   "./",
   "./index.html",
   "./styles.css",
   "./script.js",
   "./manifest.json",
-  "./icon.svg",
+  "./icons/icon.svg",
+  "./icons/icon-192.png",
+  "./icons/icon.png",
+  "./icons/icon.ico",
 ];
 
 self.addEventListener("install", (event) => {
