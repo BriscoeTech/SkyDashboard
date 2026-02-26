@@ -17,12 +17,14 @@ const ui = {
   moonsetCountdown: document.getElementById("moonset-countdown"),
   moonAltitude: document.getElementById("moon-altitude"),
   moonAzimuth: document.getElementById("moon-azimuth"),
+  moonAzimuthDir: document.getElementById("moon-azimuth-dir"),
   sunriseTime: document.getElementById("sunrise-time"),
   sunriseCountdown: document.getElementById("sunrise-countdown"),
   sunsetTime: document.getElementById("sunset-time"),
   sunsetCountdown: document.getElementById("sunset-countdown"),
   sunAltitude: document.getElementById("sun-altitude"),
   sunAzimuth: document.getElementById("sun-azimuth"),
+  sunAzimuthDir: document.getElementById("sun-azimuth-dir"),
   moonPhaseLabel: document.getElementById("moon-phase-label"),
   moonIllumination: document.getElementById("moon-illumination"),
   moonDaysNew: document.getElementById("moon-days-new"),
@@ -89,6 +91,33 @@ function formatCoord(value) {
     return "--";
   }
   return value.toFixed(4);
+}
+
+function azimuthToCompass(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "--";
+  }
+  const directions = [
+    "N",
+    "NNE",
+    "NE",
+    "ENE",
+    "E",
+    "ESE",
+    "SE",
+    "SSE",
+    "S",
+    "SSW",
+    "SW",
+    "WSW",
+    "W",
+    "WNW",
+    "NW",
+    "NNW",
+  ];
+  const normalized = ((value % 360) + 360) % 360;
+  const index = Math.round(normalized / 22.5) % directions.length;
+  return directions[index];
 }
 
 function toRadians(deg) {
@@ -724,6 +753,9 @@ function updateDashboard() {
 
   ui.moonAltitude.textContent = formatAngle(moonHorizontal.altitude);
   ui.moonAzimuth.textContent = formatAngle(moonHorizontal.azimuth);
+  if (ui.moonAzimuthDir) {
+    ui.moonAzimuthDir.textContent = azimuthToCompass(moonHorizontal.azimuth);
+  }
 
   const sunEquator = Astronomy.Equator(
     Astronomy.Body.Sun,
@@ -742,6 +774,9 @@ function updateDashboard() {
 
   ui.sunAltitude.textContent = formatAngle(sunHorizontal.altitude);
   ui.sunAzimuth.textContent = formatAngle(sunHorizontal.azimuth);
+  if (ui.sunAzimuthDir) {
+    ui.sunAzimuthDir.textContent = azimuthToCompass(sunHorizontal.azimuth);
+  }
 
   const moonTilt = computeMoonTiltDegrees(moonHorizontal, sunHorizontal);
   if (Number.isFinite(moonTilt)) {

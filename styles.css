@@ -259,6 +259,12 @@ button:hover {
   color: var(--accent-strong);
 }
 
+.compass {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.85rem;
+}
+
 .phase {
   display: flex;
   align-items: center;
