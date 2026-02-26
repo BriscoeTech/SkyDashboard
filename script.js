@@ -28,6 +28,7 @@ const ui = {
   moonDaysNew: document.getElementById("moon-days-new"),
   moonDaysFull: document.getElementById("moon-days-full"),
   moonVisual: document.getElementById("moon-visual"),
+  moonLitPath: document.getElementById("moon-lit-path"),
   sunSolsticeSummer: document.getElementById("sun-solstice-summer"),
   sunSolsticeWinter: document.getElementById("sun-solstice-winter"),
   twilightPhase: document.getElementById("twilight-phase"),
@@ -88,6 +89,68 @@ function formatCoord(value) {
     return "--";
   }
   return value.toFixed(4);
+}
+
+function toRadians(deg) {
+  return (deg * Math.PI) / 180;
+}
+
+function toDegrees(rad) {
+  return (rad * 180) / Math.PI;
+}
+
+function normalizeRadians(angle) {
+  let value = angle;
+  while (value <= -Math.PI) value += Math.PI * 2;
+  while (value > Math.PI) value -= Math.PI * 2;
+  return value;
+}
+
+function buildMoonTerminatorPath(phaseDeg, waxing) {
+  const alpha = 180 - phaseDeg;
+  const k = Math.cos((alpha * Math.PI) / 180);
+  if (!Number.isFinite(k)) return "";
+  const dir = waxing ? 1 : -1;
+  const steps = 80;
+  const cx = 50;
+  const cy = 50;
+  const radius = 48;
+  const terminator = [];
+  const limb = [];
+
+  for (let i = 0; i <= steps; i += 1) {
+    const y = -1 + (2 * i) / steps;
+    const base = Math.sqrt(Math.max(0, 1 - y * y));
+    const xTerminator = -dir * k * base;
+    terminator.push({
+      x: cx + xTerminator * radius,
+      y: cy + y * radius,
+    });
+  }
+
+  for (let i = steps; i >= 0; i -= 1) {
+    const y = -1 + (2 * i) / steps;
+    const base = Math.sqrt(Math.max(0, 1 - y * y));
+    const xLimb = dir * base;
+    limb.push({
+      x: cx + xLimb * radius,
+      y: cy + y * radius,
+    });
+  }
+
+  const parts = [];
+  if (terminator.length > 0) {
+    parts.push(`M ${terminator[0].x.toFixed(2)} ${terminator[0].y.toFixed(2)}`);
+    for (let i = 1; i < terminator.length; i += 1) {
+      parts.push(`L ${terminator[i].x.toFixed(2)} ${terminator[i].y.toFixed(2)}`);
+    }
+    for (let i = 0; i < limb.length; i += 1) {
+      parts.push(`L ${limb[i].x.toFixed(2)} ${limb[i].y.toFixed(2)}`);
+    }
+    parts.push("Z");
+  }
+
+  return parts.join(" ");
 }
 
 function formatTime(astroTime) {
@@ -419,6 +482,99 @@ function buildObserver(lat, lon, height) {
   return { latitude: lat, longitude: lon, height };
 }
 
+function computeMoonTiltDegrees(moonHorizontal, sunHorizontal) {
+  if (!moonHorizontal || !sunHorizontal) return null;
+  if (
+    !Number.isFinite(moonHorizontal.altitude) ||
+    !Number.isFinite(moonHorizontal.azimuth) ||
+    !Number.isFinite(sunHorizontal.altitude) ||
+    !Number.isFinite(sunHorizontal.azimuth)
+  ) {
+    return null;
+  }
+
+  const zUnit = { x: 0, y: 0, z: 1 };
+
+  const moonAlt = toRadians(moonHorizontal.altitude);
+  const moonAz = toRadians(moonHorizontal.azimuth);
+  const sunAlt = toRadians(sunHorizontal.altitude);
+  const sunAz = toRadians(sunHorizontal.azimuth);
+
+  const moonVec = {
+    x: Math.cos(moonAlt) * Math.sin(moonAz),
+    y: Math.cos(moonAlt) * Math.cos(moonAz),
+    z: Math.sin(moonAlt),
+  };
+  const sunVec = {
+    x: Math.cos(sunAlt) * Math.sin(sunAz),
+    y: Math.cos(sunAlt) * Math.cos(sunAz),
+    z: Math.sin(sunAlt),
+  };
+
+  const moonMag = Math.hypot(moonVec.x, moonVec.y, moonVec.z);
+  const sunMag = Math.hypot(sunVec.x, sunVec.y, sunVec.z);
+  if (!Number.isFinite(moonMag) || !Number.isFinite(sunMag)) return null;
+  const m = {
+    x: moonVec.x / moonMag,
+    y: moonVec.y / moonMag,
+    z: moonVec.z / moonMag,
+  };
+  const s = {
+    x: sunVec.x / sunMag,
+    y: sunVec.y / sunMag,
+    z: sunVec.z / sunMag,
+  };
+
+  const mDotZ = m.x * zUnit.x + m.y * zUnit.y + m.z * zUnit.z;
+  const upRaw = {
+    x: zUnit.x - mDotZ * m.x,
+    y: zUnit.y - mDotZ * m.y,
+    z: zUnit.z - mDotZ * m.z,
+  };
+  const upMag = Math.hypot(upRaw.x, upRaw.y, upRaw.z);
+  if (upMag < 1e-6) return null;
+  const up = {
+    x: upRaw.x / upMag,
+    y: upRaw.y / upMag,
+    z: upRaw.z / upMag,
+  };
+
+  const rightRaw = {
+    x: up.y * m.z - up.z * m.y,
+    y: up.z * m.x - up.x * m.z,
+    z: up.x * m.y - up.y * m.x,
+  };
+  const rightMag = Math.hypot(rightRaw.x, rightRaw.y, rightRaw.z);
+  if (rightMag < 1e-6) return null;
+  const right = {
+    x: rightRaw.x / rightMag,
+    y: rightRaw.y / rightMag,
+    z: rightRaw.z / rightMag,
+  };
+
+  const sDotM = s.x * m.x + s.y * m.y + s.z * m.z;
+  const sProjRaw = {
+    x: s.x - sDotM * m.x,
+    y: s.y - sDotM * m.y,
+    z: s.z - sDotM * m.z,
+  };
+  const sProjMag = Math.hypot(sProjRaw.x, sProjRaw.y, sProjRaw.z);
+  if (sProjMag < 1e-6) return null;
+  const sProj = {
+    x: sProjRaw.x / sProjMag,
+    y: sProjRaw.y / sProjMag,
+    z: sProjRaw.z / sProjMag,
+  };
+
+  const angle = Math.atan2(
+    sProj.x * right.x + sProj.y * right.y + sProj.z * right.z,
+    sProj.x * up.x + sProj.y * up.y + sProj.z * up.z
+  );
+
+  const tilt = normalizeRadians(angle - Math.PI / 2);
+  return toDegrees(tilt);
+}
+
 function pickRiseSet(body, observer, direction, now) {
   const next = Astronomy.SearchRiseSet(body, observer, direction, now, 1, 0);
   const prevStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -491,8 +647,12 @@ function updateDashboard() {
   ui.moonPhaseLabel.textContent = phaseLabel(moonPhaseDeg);
   ui.moonIllumination.textContent = `Illumination: ${(illum * 100).toFixed(0)}%`;
   const waxing = moonPhaseDeg < 180;
-  const phaseOffset = (1 - illum) * 50 * (waxing ? 1 : -1);
-  ui.moonVisual.style.setProperty("--phase-offset", `${phaseOffset.toFixed(2)}%`);
+  if (ui.moonLitPath) {
+    ui.moonLitPath.setAttribute(
+      "d",
+      buildMoonTerminatorPath(moonPhaseDeg, waxing)
+    );
+  }
 
   let nextNew = null;
   let nextFull = null;
@@ -582,6 +742,13 @@ function updateDashboard() {
 
   ui.sunAltitude.textContent = formatAngle(sunHorizontal.altitude);
   ui.sunAzimuth.textContent = formatAngle(sunHorizontal.azimuth);
+
+  const moonTilt = computeMoonTiltDegrees(moonHorizontal, sunHorizontal);
+  if (Number.isFinite(moonTilt)) {
+    ui.moonVisual.style.setProperty("--tilt", `${moonTilt.toFixed(1)}deg`);
+  } else {
+    ui.moonVisual.style.setProperty("--tilt", "0deg");
+  }
 
   const moonriseDate = pickRiseSet(Astronomy.Body.Moon, observer, +1, now);
   const moonsetDate = pickRiseSet(Astronomy.Body.Moon, observer, -1, now);

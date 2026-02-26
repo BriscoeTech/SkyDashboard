@@ -53,7 +53,11 @@
         <section class="card" aria-labelledby="moon-title">
           <h2 id="moon-title">Moon</h2>
           <div class="phase">
-            <div class="moon-visual" id="moon-visual" style="--illum: 0.5"></div>
+            <div class="moon-visual" id="moon-visual">
+              <svg class="moon-svg" viewBox="0 0 100 100" aria-hidden="true">
+                <path class="moon-lit" id="moon-lit-path" d=""></path>
+              </svg>
+            </div>
             <div class="phase-details">
               <h3 id="moon-phase-label">--</h3>
               <p id="moon-illumination">Illumination: --</p>
