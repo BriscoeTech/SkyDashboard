@@ -2,7 +2,6 @@ const STORAGE_KEY = "skydashboard.location.v1";
 const TIME_FORMAT_KEY = "skydashboard.timeformat.v1";
 const statusEl = document.getElementById("location-status");
 const locationButton = document.getElementById("get-location");
-const manualEntry = document.getElementById("manual-entry");
 const cityInput = document.getElementById("city-input");
 const useCityButton = document.getElementById("use-city");
 const timeFormatButton = document.getElementById("toggle-time-format");
@@ -77,6 +76,13 @@ function loadCachedLocation() {
 
 function saveLocation(location) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(location));
+}
+
+function inferLocationSource(location) {
+  if (location && (location.source === "gps" || location.source === "city")) {
+    return location.source;
+  }
+  return Number.isFinite(location?.accuracy) ? "gps" : "city";
 }
 
 function formatAngle(value) {
@@ -860,19 +866,17 @@ function setStatus(message) {
 }
 
 function setLocation(location) {
-  currentLocation = location;
-  saveLocation(location);
-  updateLocationDisplay(location);
-  showManualEntry(false);
+  const source = inferLocationSource(location);
+  const normalizedLocation = { ...location, source };
+  currentLocation = normalizedLocation;
+  saveLocation(normalizedLocation);
+  updateLocationDisplay(normalizedLocation);
   setStatus(
-    `Using cached location from ${new Date(location.cachedAt).toLocaleString()}.`
+    `Using cached ${source} location from ${new Date(
+      normalizedLocation.cachedAt
+    ).toLocaleString()}.`
   );
   updateDashboard();
-}
-
-function showManualEntry(show) {
-  if (!manualEntry) return;
-  manualEntry.classList.toggle("hidden", !show);
 }
 
 async function enrichLocationCity(location) {
@@ -926,24 +930,22 @@ async function useCityLookup() {
       accuracy: null,
       cachedAt: Date.now(),
       city: cityName || query,
+      source: "city",
     };
     setLocation(location);
   } catch (err) {
     setStatus(`City lookup failed: ${err.message}`);
-    showManualEntry(true);
   }
 }
 
 function getLocation() {
   if (!navigator.geolocation) {
     setStatus("Geolocation is not supported in this browser.");
-    showManualEntry(true);
     return;
   }
 
   if (!window.isSecureContext) {
     setStatus("Geolocation requires HTTPS or http://localhost.");
-    showManualEntry(true);
     return;
   }
 
@@ -955,6 +957,7 @@ function getLocation() {
         longitude: position.coords.longitude,
         accuracy: position.coords.accuracy,
         cachedAt: Date.now(),
+        source: "gps",
       };
       location = await enrichLocationCity(location);
       setLocation(location);
@@ -967,7 +970,6 @@ function getLocation() {
       };
       const codeLabel = codeMap[error.code] || "Unknown error";
       setStatus(`Location error: ${codeLabel} (${error.message})`);
-      showManualEntry(true);
     },
     {
       enableHighAccuracy: true,
