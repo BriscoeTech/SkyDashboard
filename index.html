@@ -22,7 +22,7 @@
       <header>
         <div class="title-group">
           <h1>
-            SkyDashboard <span class="version">v1.3</span>
+            SkyDashboard <span class="version">v1.4</span>
             <!-- Versioning uses two digits. Bump this number before committing code. -->
           </h1>
           <p>
@@ -77,17 +77,23 @@
                 <td><strong id="moonset-countdown" class="countdown">--</strong></td>
                 <td><strong id="moonset-delta" class="delta">--</strong></td>
               </tr>
-              <tr data-fixed="middle">
+              <tr>
                 <td>New Moon</td>
                 <td><strong id="moon-days-new">--</strong></td>
-                <td><strong class="countdown placeholder">--</strong></td>
-                <td><strong class="delta placeholder">--</strong></td>
+                <td><strong id="moon-new-countdown" class="countdown">--</strong></td>
+                <td><strong id="moon-new-delta" class="delta">--</strong></td>
               </tr>
-              <tr data-fixed="middle">
+              <tr>
                 <td>Full Moon</td>
                 <td><strong id="moon-days-full">--</strong></td>
-                <td><strong class="countdown placeholder">--</strong></td>
-                <td><strong class="delta placeholder">--</strong></td>
+                <td><strong id="moon-full-countdown" class="countdown">--</strong></td>
+                <td><strong id="moon-full-delta" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Next Lunar Eclipse</td>
+                <td><strong id="lunar-eclipse-time">--</strong></td>
+                <td><strong id="lunar-eclipse-countdown" class="countdown">--</strong></td>
+                <td><strong id="lunar-eclipse-delta" class="delta">--</strong></td>
               </tr>
               <tr data-fixed="bottom">
                 <td>Altitude</td>
@@ -157,17 +163,23 @@
                 <td><strong id="civil-dawn-countdown" class="countdown">--</strong></td>
                 <td><strong id="civil-dawn-delta" class="delta">--</strong></td>
               </tr>
-              <tr data-fixed="middle">
+              <tr>
                 <td>Summer Solstice</td>
                 <td><strong id="sun-solstice-summer">--</strong></td>
-                <td><strong class="countdown placeholder">--</strong></td>
-                <td><strong class="delta placeholder">--</strong></td>
+                <td><strong id="summer-solstice-countdown" class="countdown">--</strong></td>
+                <td><strong id="summer-solstice-delta" class="delta">--</strong></td>
               </tr>
-              <tr data-fixed="middle">
+              <tr>
                 <td>Winter Solstice</td>
                 <td><strong id="sun-solstice-winter">--</strong></td>
-                <td><strong class="countdown placeholder">--</strong></td>
-                <td><strong class="delta placeholder">--</strong></td>
+                <td><strong id="winter-solstice-countdown" class="countdown">--</strong></td>
+                <td><strong id="winter-solstice-delta" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Next Solar Eclipse</td>
+                <td><strong id="solar-eclipse-time">--</strong></td>
+                <td><strong id="solar-eclipse-countdown" class="countdown">--</strong></td>
+                <td><strong id="solar-eclipse-delta" class="delta">--</strong></td>
               </tr>
               <tr data-fixed="bottom">
                 <td>Altitude</td>

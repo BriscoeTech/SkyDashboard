@@ -28,10 +28,18 @@ const ui = {
   moonIllumination: document.getElementById("moon-illumination"),
   moonDaysNew: document.getElementById("moon-days-new"),
   moonDaysFull: document.getElementById("moon-days-full"),
+  moonNewCountdown: document.getElementById("moon-new-countdown"),
+  moonFullCountdown: document.getElementById("moon-full-countdown"),
+  lunarEclipseTime: document.getElementById("lunar-eclipse-time"),
+  lunarEclipseCountdown: document.getElementById("lunar-eclipse-countdown"),
   moonVisual: document.getElementById("moon-visual"),
   moonLitPath: document.getElementById("moon-lit-path"),
   sunSolsticeSummer: document.getElementById("sun-solstice-summer"),
   sunSolsticeWinter: document.getElementById("sun-solstice-winter"),
+  summerSolsticeCountdown: document.getElementById("summer-solstice-countdown"),
+  winterSolsticeCountdown: document.getElementById("winter-solstice-countdown"),
+  solarEclipseTime: document.getElementById("solar-eclipse-time"),
+  solarEclipseCountdown: document.getElementById("solar-eclipse-countdown"),
   twilightPhase: document.getElementById("twilight-phase"),
   civilDuskTime: document.getElementById("civil-dusk-time"),
   civilDuskCountdown: document.getElementById("civil-dusk-countdown"),
@@ -53,6 +61,12 @@ const ui = {
 
 let currentLocation = null;
 let use24Hour = false;
+let eclipseCache = {
+  key: null,
+  computedAt: 0,
+  lunarDate: null,
+  solarDate: null,
+};
 
 function loadTimeFormat() {
   const raw = localStorage.getItem(TIME_FORMAT_KEY);
@@ -197,6 +211,18 @@ function formatTime(astroTime) {
   });
 }
 
+function formatDateTime(date) {
+  if (!(date instanceof Date)) return "No event";
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: !use24Hour,
+  });
+}
+
 function formatCountdown(targetDate, now) {
   if (!targetDate) return "--";
   const diffMs = targetDate.getTime() - now.getTime();
@@ -220,6 +246,18 @@ function formatCountdown(targetDate, now) {
   ).padStart(2, "0")}s`;
 }
 
+function formatCountdownWithin24h(targetDate, now) {
+  if (!targetDate) return "--";
+  if (!isWithin24Hours(targetDate, now)) return "";
+  return formatCountdown(targetDate, now);
+}
+
+function isWithin24Hours(targetDate, now) {
+  if (!(targetDate instanceof Date) || !(now instanceof Date)) return false;
+  const diffMs = targetDate.getTime() - now.getTime();
+  return Math.abs(diffMs) <= 24 * 60 * 60 * 1000;
+}
+
 function formatDaysUntil(targetDate, now) {
   if (!targetDate) return "--";
   const diffDays = (targetDate.getTime() - now.getTime()) / 86400000;
@@ -231,6 +269,7 @@ function normalizeAstroDate(value) {
   if (!value) return null;
   if (value instanceof Date) return value;
   if (value.date instanceof Date) return value.date;
+  if (value.time) return normalizeAstroDate(value.time);
   if (typeof value.toDate === "function") return value.toDate();
   return null;
 }
@@ -466,8 +505,10 @@ function formatDeltaMinutes(diffMinutes) {
   )}m`;
 }
 
-function updateSunDeltas(tableEl, countdownMap) {
+function updateSunDeltas(tableEl, countdownMap, options = {}) {
   if (!tableEl || !tableEl.tBodies.length) return;
+  const hideWhenFarKeys = options.hideWhenFarKeys || new Set();
+  const now = options.now instanceof Date ? options.now : null;
   const rows = Array.from(tableEl.tBodies[0].rows);
   let prevDate = null;
   rows.forEach((row) => {
@@ -476,6 +517,15 @@ function updateSunDeltas(tableEl, countdownMap) {
     if (!deltaEl) return;
     const key = countdownEl ? countdownEl.id : null;
     const currentDate = key ? countdownMap[key] : null;
+    const hideDeltaForFarEvent =
+      key && hideWhenFarKeys.has(key) && now && !isWithin24Hours(currentDate, now);
+    if (hideDeltaForFarEvent) {
+      deltaEl.textContent = "";
+      if (currentDate instanceof Date) {
+        prevDate = currentDate;
+      }
+      return;
+    }
     if (!(currentDate instanceof Date) || !(prevDate instanceof Date)) {
       deltaEl.textContent = "--";
     } else {
@@ -610,6 +660,118 @@ function computeMoonTiltDegrees(moonHorizontal, sunHorizontal) {
   return toDegrees(tilt);
 }
 
+function pickLunarEclipseStart(info) {
+  if (!info) return null;
+  const candidates = [
+    info.sd_penum,
+    info.sd_partial,
+    info.sd_total,
+    info.peak,
+  ];
+  for (let i = 0; i < candidates.length; i += 1) {
+    const date = normalizeAstroDate(candidates[i]);
+    if (date instanceof Date) return date;
+  }
+  return null;
+}
+
+function isBodyAboveHorizon(body, date, observer) {
+  if (!(date instanceof Date) || !observer) return false;
+  try {
+    const refraction = Astronomy.Refraction ? Astronomy.Refraction.Normal : true;
+    const equator = Astronomy.Equator(body, date, observer, true, true);
+    const horizontal = Astronomy.Horizon(
+      date,
+      observer,
+      equator.ra,
+      equator.dec,
+      refraction
+    );
+    return Number.isFinite(horizontal.altitude) && horizontal.altitude > 0;
+  } catch (err) {
+    return false;
+  }
+}
+
+function findNextVisibleLunarEclipse(now, observer) {
+  if (typeof Astronomy.SearchLunarEclipse !== "function") return null;
+  const toAstroTime =
+    typeof Astronomy.MakeTime === "function"
+      ? (d) => Astronomy.MakeTime(d)
+      : (d) => d;
+  const stepDays = 40;
+  const maxChecks = 20;
+
+  for (let i = 0; i < maxChecks; i += 1) {
+    const searchStart = new Date(now.getTime() + i * stepDays * 86400000);
+    let info = null;
+    try {
+      info = Astronomy.SearchLunarEclipse(toAstroTime(searchStart));
+    } catch (err) {
+      return null;
+    }
+    if (!info) return null;
+    const startDate = pickLunarEclipseStart(info);
+    if (!(startDate instanceof Date) || startDate <= now) continue;
+    const peakDate = normalizeAstroDate(info.peak);
+    if (
+      isBodyAboveHorizon(Astronomy.Body.Moon, startDate, observer) ||
+      isBodyAboveHorizon(Astronomy.Body.Moon, peakDate, observer)
+    ) {
+      return startDate;
+    }
+  }
+  return null;
+}
+
+function findNextLocalSolarEclipseStart(now, observer) {
+  if (typeof Astronomy.SearchLocalSolarEclipse !== "function") return null;
+  const startTime =
+    typeof Astronomy.MakeTime === "function" ? Astronomy.MakeTime(now) : now;
+  try {
+    const info = Astronomy.SearchLocalSolarEclipse(startTime, observer);
+    if (!info) return null;
+    const startDate = normalizeAstroDate(info.partial_begin);
+    if (startDate instanceof Date) return startDate;
+    return normalizeAstroDate(info.peak);
+  } catch (err) {
+    return null;
+  }
+}
+
+function locationCacheKey(location) {
+  if (!location) return "none";
+  const lat = Number.isFinite(location.latitude) ? location.latitude.toFixed(3) : "na";
+  const lon = Number.isFinite(location.longitude) ? location.longitude.toFixed(3) : "na";
+  const elev = Number.isFinite(location.elevation) ? location.elevation.toFixed(0) : "0";
+  return `${lat}|${lon}|${elev}`;
+}
+
+function getCachedEclipseDates(now, observer, location) {
+  const key = locationCacheKey(location);
+  const staleMs = 6 * 60 * 60 * 1000;
+  const isStale = now.getTime() - eclipseCache.computedAt > staleMs;
+  const keyChanged = eclipseCache.key !== key;
+  const lunarExpired =
+    eclipseCache.lunarDate instanceof Date && eclipseCache.lunarDate <= now;
+  const solarExpired =
+    eclipseCache.solarDate instanceof Date && eclipseCache.solarDate <= now;
+
+  if (keyChanged || isStale || lunarExpired || solarExpired) {
+    eclipseCache = {
+      key,
+      computedAt: now.getTime(),
+      lunarDate: findNextVisibleLunarEclipse(now, observer),
+      solarDate: findNextLocalSolarEclipseStart(now, observer),
+    };
+  }
+
+  return {
+    lunarDate: eclipseCache.lunarDate,
+    solarDate: eclipseCache.solarDate,
+  };
+}
+
 function pickRiseSet(body, observer, direction, now) {
   const next = Astronomy.SearchRiseSet(body, observer, direction, now, 1, 0);
   const prevStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -716,6 +878,12 @@ function updateDashboard() {
     fallbackFull,
     now
   );
+  if (ui.moonNewCountdown) {
+    ui.moonNewCountdown.textContent = formatCountdownWithin24h(fallbackNew, now);
+  }
+  if (ui.moonFullCountdown) {
+    ui.moonFullCountdown.textContent = formatCountdownWithin24h(fallbackFull, now);
+  }
 
   let nextSummer = null;
   let nextWinter = null;
@@ -739,6 +907,18 @@ function updateDashboard() {
     nextWinterDate || nextSunLongitudeFallback(270, now, currentLon);
   ui.sunSolsticeSummer.textContent = formatDaysUntil(fallbackSummer, now);
   ui.sunSolsticeWinter.textContent = formatDaysUntil(fallbackWinter, now);
+  if (ui.summerSolsticeCountdown) {
+    ui.summerSolsticeCountdown.textContent = formatCountdownWithin24h(
+      fallbackSummer,
+      now
+    );
+  }
+  if (ui.winterSolsticeCountdown) {
+    ui.winterSolsticeCountdown.textContent = formatCountdownWithin24h(
+      fallbackWinter,
+      now
+    );
+  }
 
   const refraction = Astronomy.Refraction ? Astronomy.Refraction.Normal : true;
 
@@ -828,11 +1008,32 @@ function updateDashboard() {
   ui.astroDawnTime.textContent = formatTime({ date: astroDawn });
   ui.astroDawnCountdown.textContent = formatCountdown(astroDawn, now);
 
+  const eclipseDates = getCachedEclipseDates(now, observer, currentLocation);
+  const lunarEclipseDate = eclipseDates.lunarDate;
+  const solarEclipseDate = eclipseDates.solarDate;
+  ui.lunarEclipseTime.textContent = lunarEclipseDate
+    ? formatDateTime(lunarEclipseDate)
+    : "No event";
+  ui.lunarEclipseCountdown.textContent = formatCountdownWithin24h(
+    lunarEclipseDate,
+    now
+  );
+  ui.solarEclipseTime.textContent = solarEclipseDate
+    ? formatDateTime(solarEclipseDate)
+    : "No event";
+  ui.solarEclipseCountdown.textContent = formatCountdownWithin24h(
+    solarEclipseDate,
+    now
+  );
+
   sortEventRows(
     moonTable,
     {
       "moonrise-countdown": moonriseDate,
       "moonset-countdown": moonsetDate,
+      "moon-new-countdown": fallbackNew,
+      "moon-full-countdown": fallbackFull,
+      "lunar-eclipse-countdown": lunarEclipseDate,
     },
     now
   );
@@ -841,6 +1042,17 @@ function updateDashboard() {
     {
       "moonrise-countdown": moonriseDate,
       "moonset-countdown": moonsetDate,
+      "moon-new-countdown": fallbackNew,
+      "moon-full-countdown": fallbackFull,
+      "lunar-eclipse-countdown": lunarEclipseDate,
+    },
+    {
+      now,
+      hideWhenFarKeys: new Set([
+        "moon-new-countdown",
+        "moon-full-countdown",
+        "lunar-eclipse-countdown",
+      ]),
     }
   );
   const sunCountdowns = {
@@ -852,13 +1064,23 @@ function updateDashboard() {
     "astro-dawn-countdown": astroDawn,
     "nautical-dawn-countdown": nauticalDawn,
     "civil-dawn-countdown": civilDawn,
+    "summer-solstice-countdown": fallbackSummer,
+    "winter-solstice-countdown": fallbackWinter,
+    "solar-eclipse-countdown": solarEclipseDate,
   };
   sortEventRows(
     sunTable,
     sunCountdowns,
     now
   );
-  updateSunDeltas(sunTable, sunCountdowns);
+  updateSunDeltas(sunTable, sunCountdowns, {
+    now,
+    hideWhenFarKeys: new Set([
+      "summer-solstice-countdown",
+      "winter-solstice-countdown",
+      "solar-eclipse-countdown",
+    ]),
+  });
 }
 
 function setStatus(message) {
