@@ -19,7 +19,18 @@
   <body>
     <div class="backdrop"></div>
     <div class="app">
-      <header>
+      <header class="observer-banner" id="observer-banner">
+        <button
+          id="toggle-banner-dock"
+          class="dock-toggle"
+          type="button"
+          aria-expanded="true"
+          aria-controls="observer-banner-content"
+          title="Dock observer controls"
+        >
+          <span class="dock-toggle-icon" aria-hidden="true"></span>
+          <span class="dock-toggle-label">Dock</span>
+        </button>
         <div class="title-group">
           <h1>
             SkyDashboard <span class="version">v1.4</span>
@@ -30,22 +41,65 @@
             powered by Astronomy Engine.
           </p>
         </div>
-        <div class="controls">
-          <button id="get-location">Get Location Gps</button>
-          <button id="toggle-time-format" type="button">Time: 12h</button>
-          <div class="manual-entry" id="manual-entry">
-            <div class="manual-entry-row">
-              <input
-                id="city-input"
-                type="text"
-                placeholder="Enter city (e.g., Madison, WI)"
-                autocomplete="address-level2"
-              />
-              <button id="use-city" type="button">Use City</button>
+        <div class="observer-banner-content" id="observer-banner-content">
+          <div class="controls">
+            <div class="manual-entry" id="manual-entry">
+              <div class="manual-entry-row">
+                <input
+                  id="city-input"
+                  type="text"
+                  placeholder="Enter city (e.g., Madison, WI)"
+                  autocomplete="address-level2"
+                />
+                <button id="use-city" type="button">Use City</button>
+              </div>
+              <div class="manual-hint">Set a city or use GPS.</div>
             </div>
-            <div class="manual-hint">No GPS? Enter your city.</div>
+            <div class="control-actions">
+              <button id="get-location">Get GPS</button>
+            </div>
+            <div class="status" id="location-status">Location not set yet.</div>
           </div>
-          <div class="status" id="location-status">Location not set yet.</div>
+          <section class="observer-panel" aria-labelledby="observer-panel-title">
+            <div class="observer-panel-header">
+              <h2 id="observer-panel-title">Observer</h2>
+              <button id="toggle-time-format" type="button">Time: 12h</button>
+            </div>
+            <table class="data-table observer-table" id="observer-table">
+              <tbody>
+                <tr data-fixed="top">
+                  <td>City</td>
+                  <td><strong id="city">--</strong></td>
+                  <td><strong class="countdown placeholder">--</strong></td>
+                </tr>
+                <tr data-fixed="top">
+                  <td>Source</td>
+                  <td><strong id="location-source">--</strong></td>
+                  <td><strong class="countdown placeholder">--</strong></td>
+                </tr>
+                <tr data-fixed="top">
+                  <td>Latitude</td>
+                  <td><strong id="lat">--</strong></td>
+                  <td><strong class="countdown placeholder">--</strong></td>
+                </tr>
+                <tr data-fixed="top">
+                  <td>Longitude</td>
+                  <td><strong id="lon">--</strong></td>
+                  <td><strong class="countdown placeholder">--</strong></td>
+                </tr>
+                <tr data-fixed="top">
+                  <td>Cached</td>
+                  <td><strong id="cached-at">--</strong></td>
+                  <td><strong class="countdown placeholder">--</strong></td>
+                </tr>
+                <tr data-fixed="top">
+                  <td>Current Phase</td>
+                  <td><strong id="twilight-phase">--</strong></td>
+                  <td><strong class="countdown placeholder">--</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
         </div>
       </header>
 
@@ -192,39 +246,6 @@
                 <td><strong id="sun-azimuth">--</strong></td>
                 <td><strong id="sun-azimuth-dir" class="compass">--</strong></td>
                 <td><strong class="delta placeholder">--</strong></td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-
-        <section class="card" aria-labelledby="location-title">
-          <h2 id="location-title">Observer <span>Cache</span></h2>
-          <table class="data-table" id="observer-table">
-            <tbody>
-              <tr data-fixed="top">
-                <td>City</td>
-                <td><strong id="city">--</strong></td>
-                <td><strong class="countdown placeholder">--</strong></td>
-              </tr>
-              <tr data-fixed="top">
-                <td>Latitude</td>
-                <td><strong id="lat">--</strong></td>
-                <td><strong class="countdown placeholder">--</strong></td>
-              </tr>
-              <tr data-fixed="top">
-                <td>Longitude</td>
-                <td><strong id="lon">--</strong></td>
-                <td><strong class="countdown placeholder">--</strong></td>
-              </tr>
-              <tr data-fixed="top">
-                <td>Cached</td>
-                <td><strong id="cached-at">--</strong></td>
-                <td><strong class="countdown placeholder">--</strong></td>
-              </tr>
-              <tr data-fixed="top">
-                <td>Current Phase</td>
-                <td><strong id="twilight-phase">--</strong></td>
-                <td><strong class="countdown placeholder">--</strong></td>
               </tr>
             </tbody>
           </table>

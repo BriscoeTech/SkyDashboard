@@ -54,13 +54,79 @@ header {
   flex-wrap: wrap;
   gap: 24px;
   justify-content: space-between;
-  align-items: center;
+  align-items: stretch;
   padding: 28px 32px;
   border-radius: 24px;
   background: rgba(8, 14, 20, 0.75);
   border: 1px solid rgba(112, 214, 255, 0.2);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(12px);
+}
+
+.observer-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    "dock title"
+    "dock content";
+  gap: 24px;
+  align-items: stretch;
+}
+
+.observer-banner.is-docked {
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "dock title";
+  align-items: center;
+}
+
+.observer-banner.is-docked .observer-banner-content {
+  display: none;
+}
+
+.observer-banner.is-docked .title-group p {
+  display: none;
+}
+
+.dock-toggle {
+  grid-area: dock;
+  align-self: center;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  min-width: 64px;
+  min-height: 100%;
+  padding: 16px 12px;
+  background: linear-gradient(180deg, rgba(112, 214, 255, 0.9), rgba(94, 160, 255, 0.82));
+}
+
+.dock-toggle:hover {
+  transform: translateX(-1px);
+}
+
+.dock-toggle-icon {
+  width: 16px;
+  height: 16px;
+  border-top: 2px solid currentColor;
+  border-left: 2px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform 0.2s ease;
+}
+
+.observer-banner.is-docked .dock-toggle-icon {
+  transform: rotate(135deg);
+}
+
+.dock-toggle-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  letter-spacing: 0.18em;
+}
+
+.title-group {
+  grid-area: title;
+  min-width: 0;
 }
 
 .title-group h1 {
@@ -72,13 +138,23 @@ header {
 .title-group p {
   margin: 0;
   color: var(--muted);
-  max-width: 480px;
+  max-width: 640px;
 }
 
 .controls {
   display: grid;
   gap: 10px;
   justify-items: start;
+  min-width: 0;
+}
+
+.observer-banner-content {
+  grid-area: content;
+  display: grid;
+  grid-template-columns: minmax(280px, 1.15fr) minmax(320px, 0.85fr);
+  gap: 24px;
+  align-items: start;
+  min-width: 0;
 }
 
 .controls button#toggle-time-format {
@@ -153,10 +229,55 @@ button:hover {
   box-shadow: 0 10px 18px rgba(112, 214, 255, 0.25);
 }
 
+.control-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .manual-hint {
   font-family: var(--mono);
   font-size: 0.75rem;
   color: rgba(238, 244, 255, 0.55);
+}
+
+.observer-panel {
+  min-width: 0;
+  width: 100%;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(14, 22, 30, 0.58);
+  border: 1px solid rgba(112, 214, 255, 0.14);
+  overflow-x: auto;
+}
+
+.observer-panel h2 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.observer-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.observer-panel-header h2 {
+  margin: 0;
+}
+
+.observer-panel-header button {
+  padding: 10px 16px;
+  box-shadow: 0 10px 18px rgba(255, 189, 89, 0.2);
+}
+
+.observer-table {
+  min-width: 100%;
+  width: 100%;
 }
 
 .grid {
@@ -319,6 +440,36 @@ button:hover {
 @media (max-width: 720px) {
   header {
     padding: 24px;
+  }
+
+  .observer-banner {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "dock"
+      "title"
+      "content";
+  }
+
+  .observer-banner.is-docked {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "dock"
+      "title";
+  }
+
+  .dock-toggle {
+    min-height: auto;
+    min-width: 100%;
+    flex-direction: row;
+  }
+
+  .dock-toggle-label {
+    writing-mode: initial;
+    transform: none;
+  }
+
+  .observer-banner-content {
+    grid-template-columns: 1fr;
   }
 
   .phase {

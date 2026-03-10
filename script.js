@@ -1,10 +1,13 @@
 const STORAGE_KEY = "skydashboard.location.v1";
 const TIME_FORMAT_KEY = "skydashboard.timeformat.v1";
+const BANNER_DOCK_KEY = "skydashboard.bannerDocked.v1";
 const statusEl = document.getElementById("location-status");
 const locationButton = document.getElementById("get-location");
 const cityInput = document.getElementById("city-input");
 const useCityButton = document.getElementById("use-city");
 const timeFormatButton = document.getElementById("toggle-time-format");
+const bannerEl = document.getElementById("observer-banner");
+const bannerDockButton = document.getElementById("toggle-banner-dock");
 const moonTable = document.getElementById("moon-table");
 const sunTable = document.getElementById("sun-table");
 const observerTable = document.getElementById("observer-table");
@@ -54,6 +57,7 @@ const ui = {
   civilDawnTime: document.getElementById("civil-dawn-time"),
   civilDawnCountdown: document.getElementById("civil-dawn-countdown"),
   city: document.getElementById("city"),
+  locationSource: document.getElementById("location-source"),
   lat: document.getElementById("lat"),
   lon: document.getElementById("lon"),
   cachedAt: document.getElementById("cached-at"),
@@ -61,6 +65,7 @@ const ui = {
 
 let currentLocation = null;
 let use24Hour = false;
+let bannerDocked = false;
 let eclipseCache = {
   key: null,
   computedAt: 0,
@@ -76,6 +81,14 @@ function loadTimeFormat() {
 
 function saveTimeFormat(value) {
   localStorage.setItem(TIME_FORMAT_KEY, value ? "24h" : "12h");
+}
+
+function loadBannerDocked() {
+  return localStorage.getItem(BANNER_DOCK_KEY) === "true";
+}
+
+function saveBannerDocked(value) {
+  localStorage.setItem(BANNER_DOCK_KEY, value ? "true" : "false");
 }
 
 function loadCachedLocation() {
@@ -817,6 +830,7 @@ async function reverseGeocodeCity(latitude, longitude) {
 function updateLocationDisplay(location) {
   if (!location) {
     ui.city.textContent = "--";
+    ui.locationSource.textContent = "--";
     ui.lat.textContent = "--";
     ui.lon.textContent = "--";
     ui.cachedAt.textContent = "--";
@@ -824,9 +838,21 @@ function updateLocationDisplay(location) {
   }
 
   ui.city.textContent = location.city || "--";
+  ui.locationSource.textContent = (location.source || "--").toUpperCase();
   ui.lat.textContent = formatCoord(location.latitude);
   ui.lon.textContent = formatCoord(location.longitude);
   ui.cachedAt.textContent = new Date(location.cachedAt).toLocaleString();
+}
+
+function applyBannerDockState() {
+  if (!bannerEl || !bannerDockButton) return;
+  bannerEl.classList.toggle("is-docked", bannerDocked);
+  bannerDockButton.setAttribute("aria-expanded", bannerDocked ? "false" : "true");
+  bannerDockButton.setAttribute("title", bannerDocked ? "Show observer controls" : "Dock observer controls");
+  const label = bannerDockButton.querySelector(".dock-toggle-label");
+  if (label) {
+    label.textContent = bannerDocked ? "Show" : "Dock";
+  }
 }
 
 function updateDashboard() {
@@ -1216,6 +1242,12 @@ timeFormatButton.addEventListener("click", () => {
   updateDashboard();
 });
 
+bannerDockButton.addEventListener("click", () => {
+  bannerDocked = !bannerDocked;
+  saveBannerDocked(bannerDocked);
+  applyBannerDockState();
+});
+
 const cached = loadCachedLocation();
 if (cached) {
   enrichLocationCity(cached).then((updated) => {
@@ -1232,6 +1264,8 @@ setInterval(updateDashboard, 1000);
 
 use24Hour = loadTimeFormat();
 timeFormatButton.textContent = use24Hour ? "Time: 24h" : "Time: 12h";
+bannerDocked = loadBannerDocked();
+applyBannerDockState();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
