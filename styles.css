@@ -5,6 +5,10 @@
   --card-border: rgba(141, 184, 255, 0.18);
   --accent: #70d6ff;
   --accent-strong: #ffbd59;
+  --button-start: #c66a2d;
+  --button-end: #8f4318;
+  --button-shadow: rgba(177, 92, 39, 0.35);
+  --button-text: #fff3e6;
   --text: #eef4ff;
   --muted: rgba(238, 244, 255, 0.6);
   --mono: "IBM Plex Mono", "Cascadia Mono", monospace;
@@ -98,7 +102,7 @@ header {
   min-width: 64px;
   min-height: 100%;
   padding: 16px 12px;
-  background: linear-gradient(180deg, rgba(112, 214, 255, 0.9), rgba(94, 160, 255, 0.82));
+  background: linear-gradient(180deg, var(--button-start), var(--button-end));
 }
 
 .dock-toggle:hover {
@@ -167,8 +171,8 @@ header {
 }
 
 .controls button#toggle-time-format {
-  background: linear-gradient(120deg, rgba(255, 189, 89, 0.95), #ff8f59);
-  box-shadow: 0 12px 24px rgba(255, 189, 89, 0.25);
+  background: linear-gradient(120deg, var(--button-start), var(--button-end));
+  box-shadow: 0 12px 24px var(--button-shadow);
 }
 
 input[type="text"] {
@@ -200,11 +204,11 @@ button {
   padding: 12px 20px;
   border-radius: 999px;
   border: none;
-  background: linear-gradient(120deg, var(--accent), #5ea0ff);
-  color: #03101d;
+  background: linear-gradient(120deg, var(--button-start), var(--button-end));
+  color: var(--button-text);
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  box-shadow: 0 12px 24px rgba(112, 214, 255, 0.3);
+  box-shadow: 0 12px 24px var(--button-shadow);
 }
 
 button:hover {
@@ -235,7 +239,7 @@ button:hover {
 
 .manual-entry-row button {
   padding: 10px 16px;
-  box-shadow: 0 10px 18px rgba(112, 214, 255, 0.25);
+  box-shadow: 0 10px 18px rgba(177, 92, 39, 0.28);
 }
 
 .control-actions {
