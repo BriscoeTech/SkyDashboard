@@ -400,6 +400,7 @@ button:hover {
   overflow: hidden;
   box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6),
     0 0 22px rgba(255, 210, 133, 0.25);
+  transition: filter 180ms ease, box-shadow 180ms ease, background 180ms ease;
 }
 
 .moon-svg {
@@ -413,6 +414,7 @@ button:hover {
 .moon-lit {
   fill: #f7e9b3;
   filter: drop-shadow(0 0 10px rgba(255, 215, 140, 0.2));
+  transition: fill 180ms ease, filter 180ms ease;
 }
 
 .sun-visual {
@@ -428,11 +430,38 @@ button:hover {
 .sun-core {
   fill: #ffb347;
   filter: drop-shadow(0 0 12px rgba(255, 193, 94, 0.7));
+  transition: fill 180ms ease, filter 180ms ease;
 }
 
 .sun-rays {
   fill: #ffd27a;
   filter: drop-shadow(0 0 8px rgba(255, 210, 122, 0.45));
+  transition: fill 180ms ease, filter 180ms ease;
+}
+
+.moon-visual.below-horizon {
+  filter: grayscale(1) saturate(0.35) brightness(0.75);
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.68),
+    0 0 14px rgba(173, 181, 189, 0.12);
+}
+
+.moon-visual.below-horizon .moon-lit {
+  fill: #c1c5cb;
+  filter: none;
+}
+
+.sun-visual.below-horizon {
+  background: radial-gradient(circle at 50% 50%, #34373b 0%, #1c2228 58%, #111b24 100%);
+}
+
+.sun-visual.below-horizon .sun-core {
+  fill: #aab0b8;
+  filter: none;
+}
+
+.sun-visual.below-horizon .sun-rays {
+  fill: #8c939c;
+  filter: none;
 }
 
 .phase-details {

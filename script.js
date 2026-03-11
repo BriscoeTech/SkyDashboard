@@ -39,6 +39,7 @@ const ui = {
   lunarEclipseCountdown: document.getElementById("lunar-eclipse-countdown"),
   moonVisual: document.getElementById("moon-visual"),
   moonLitPath: document.getElementById("moon-lit-path"),
+  sunVisual: document.getElementById("sun-visual"),
   sunSolsticeSummer: document.getElementById("sun-solstice-summer"),
   sunSolsticeWinter: document.getElementById("sun-solstice-winter"),
   summerSolsticeCountdown: document.getElementById("summer-solstice-countdown"),
@@ -1093,6 +1094,10 @@ function updateDashboard() {
   ui.moonAzimuthInline.textContent = `Azimuth: ${formatAzimuthLabel(
     moonHorizontal.azimuth
   )}`;
+  ui.moonVisual?.classList.toggle(
+    "below-horizon",
+    Number.isFinite(moonHorizontal.altitude) && moonHorizontal.altitude < 0
+  );
 
   const sunHorizontal = computeBodyHorizontal(
     Astronomy.Body.Sun,
@@ -1113,6 +1118,10 @@ function updateDashboard() {
   ui.sunAzimuthInline.textContent = `Azimuth: ${formatAzimuthLabel(
     sunHorizontal.azimuth
   )}`;
+  ui.sunVisual?.classList.toggle(
+    "below-horizon",
+    Number.isFinite(sunHorizontal.altitude) && sunHorizontal.altitude < 0
+  );
 
   const moonTilt = computeMoonTiltDegrees(moonHorizontal, sunHorizontal);
   if (Number.isFinite(moonTilt)) {
