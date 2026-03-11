@@ -17,16 +17,18 @@ const ui = {
   moonriseCountdown: document.getElementById("moonrise-countdown"),
   moonsetTime: document.getElementById("moonset-time"),
   moonsetCountdown: document.getElementById("moonset-countdown"),
-  moonAltitude: document.getElementById("moon-altitude"),
-  moonAzimuth: document.getElementById("moon-azimuth"),
-  moonAzimuthDir: document.getElementById("moon-azimuth-dir"),
+  moonHorizonStatus: document.getElementById("moon-horizon-status"),
+  moonAltitudeInline: document.getElementById("moon-altitude-inline"),
+  moonAzimuthInline: document.getElementById("moon-azimuth-inline"),
   sunriseTime: document.getElementById("sunrise-time"),
   sunriseCountdown: document.getElementById("sunrise-countdown"),
   sunsetTime: document.getElementById("sunset-time"),
   sunsetCountdown: document.getElementById("sunset-countdown"),
-  sunAltitude: document.getElementById("sun-altitude"),
-  sunAzimuth: document.getElementById("sun-azimuth"),
-  sunAzimuthDir: document.getElementById("sun-azimuth-dir"),
+  solarNoonTime: document.getElementById("solar-noon-time"),
+  solarNoonCountdown: document.getElementById("solar-noon-countdown"),
+  sunHorizonStatus: document.getElementById("sun-horizon-status"),
+  sunAltitudeInline: document.getElementById("sun-altitude-inline"),
+  sunAzimuthInline: document.getElementById("sun-azimuth-inline"),
   moonPhaseLabel: document.getElementById("moon-phase-label"),
   moonIllumination: document.getElementById("moon-illumination"),
   moonDaysNew: document.getElementById("moon-days-new"),
@@ -153,6 +155,13 @@ function azimuthToCompass(value) {
   return directions[index];
 }
 
+function formatAzimuthLabel(value) {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "--";
+  }
+  return `${formatAngle(value)} ${azimuthToCompass(value)}`;
+}
+
 function toRadians(deg) {
   return (deg * Math.PI) / 180;
 }
@@ -257,6 +266,17 @@ function formatCountdown(targetDate, now) {
   )}m ${String(
     seconds
   ).padStart(2, "0")}s`;
+}
+
+function formatSkyEventCountdown(targetDate, now, maxHours = 48) {
+  if (!(targetDate instanceof Date) || !(now instanceof Date)) {
+    return "--";
+  }
+  const diffHours = Math.abs(targetDate.getTime() - now.getTime()) / 3600000;
+  if (!Number.isFinite(diffHours) || diffHours > maxHours) {
+    return "--";
+  }
+  return formatCountdown(targetDate, now);
 }
 
 function formatCountdownWithin24h(targetDate, now) {
@@ -413,6 +433,38 @@ function computeSunAltitude(date, observer, refraction) {
   return sunHorizontal.altitude;
 }
 
+function computeBodyHorizontal(body, date, observer, refraction) {
+  const equator = Astronomy.Equator(body, date, observer, true, true);
+  return Astronomy.Horizon(date, observer, equator.ra, equator.dec, refraction);
+}
+
+function describeHorizonStatus(body, observer, now, currentAltitude) {
+  if (!(now instanceof Date) || !observer || !Number.isFinite(currentAltitude)) {
+    return "--";
+  }
+  if (currentAltitude <= 0) {
+    return "Below Horizon";
+  }
+
+  const refraction = Astronomy.Refraction ? Astronomy.Refraction.Normal : true;
+  const sampleDate = new Date(now.getTime() + 5 * 60000);
+
+  try {
+    const futureHorizontal = computeBodyHorizontal(
+      body,
+      sampleDate,
+      observer,
+      refraction
+    );
+    if (!Number.isFinite(futureHorizontal.altitude)) {
+      return "--";
+    }
+    return futureHorizontal.altitude >= currentAltitude ? "Rising" : "Setting";
+  } catch (err) {
+    return "--";
+  }
+}
+
 function findNextSunAltitudeCrossing(targetAlt, direction, now, observer) {
   const stepMinutes = 10;
   const maxHours = 48;
@@ -524,22 +576,36 @@ function updateSunDeltas(tableEl, countdownMap, options = {}) {
   const now = options.now instanceof Date ? options.now : null;
   const rows = Array.from(tableEl.tBodies[0].rows);
   let prevDate = null;
+  let prevTemporalGroup = null;
   rows.forEach((row) => {
     const countdownEl = row.querySelector("strong.countdown[id]");
     const deltaEl = row.querySelector("strong.delta");
     if (!deltaEl) return;
     const key = countdownEl ? countdownEl.id : null;
     const currentDate = key ? countdownMap[key] : null;
+    const currentTemporalGroup =
+      currentDate instanceof Date && now
+        ? currentDate >= now
+          ? "future"
+          : "past"
+        : null;
     const hideDeltaForFarEvent =
       key && hideWhenFarKeys.has(key) && now && !isWithin24Hours(currentDate, now);
     if (hideDeltaForFarEvent) {
       deltaEl.textContent = "";
       if (currentDate instanceof Date) {
         prevDate = currentDate;
+        prevTemporalGroup = currentTemporalGroup;
       }
       return;
     }
-    if (!(currentDate instanceof Date) || !(prevDate instanceof Date)) {
+    if (
+      !(currentDate instanceof Date) ||
+      !(prevDate instanceof Date) ||
+      !currentTemporalGroup ||
+      !prevTemporalGroup ||
+      currentTemporalGroup !== prevTemporalGroup
+    ) {
       deltaEl.textContent = "--";
     } else {
       const diffMinutes = (currentDate.getTime() - prevDate.getTime()) / 60000;
@@ -547,6 +613,7 @@ function updateSunDeltas(tableEl, countdownMap, options = {}) {
     }
     if (currentDate instanceof Date) {
       prevDate = currentDate;
+      prevTemporalGroup = currentTemporalGroup;
     }
   });
 }
@@ -785,25 +852,84 @@ function getCachedEclipseDates(now, observer, location) {
   };
 }
 
-function pickRiseSet(body, observer, direction, now) {
-  const next = Astronomy.SearchRiseSet(body, observer, direction, now, 1, 0);
-  const prevStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-  const prev = Astronomy.SearchRiseSet(body, observer, direction, prevStart, 1, 0);
-  const prevDate = prev && prev.date && prev.date <= now ? prev.date : null;
-  const nextDate = next && next.date ? next.date : null;
+function localDayBounds(date) {
+  if (!(date instanceof Date)) {
+    return { start: null, end: null };
+  }
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  return { start, end };
+}
 
-  if (prevDate) {
-    const hoursAgo = (now.getTime() - prevDate.getTime()) / 3600000;
+function pickRiseSet(body, observer, direction, now) {
+  const { start, end } = localDayBounds(now);
+  if (!start || !end) return null;
+  const yesterday = new Date(start);
+  yesterday.setDate(yesterday.getDate() - 1);
+  const tomorrow = new Date(end);
+
+  const yesterdayEvent = normalizeAstroDate(
+    Astronomy.SearchRiseSet(body, observer, direction, yesterday, 1, 0)
+  );
+  const todayEvent = normalizeAstroDate(
+    Astronomy.SearchRiseSet(body, observer, direction, start, 1, 0)
+  );
+  const tomorrowEvent = normalizeAstroDate(
+    Astronomy.SearchRiseSet(body, observer, direction, tomorrow, 1, 0)
+  );
+
+  const candidates = [yesterdayEvent, todayEvent, tomorrowEvent].filter(
+    (value) => value instanceof Date
+  );
+  const pastRecent = candidates
+    .filter((value) => value <= now)
+    .sort((a, b) => b.getTime() - a.getTime())[0];
+  const upcoming = candidates
+    .filter((value) => value >= now)
+    .sort((a, b) => a.getTime() - b.getTime())[0];
+
+  if (pastRecent) {
+    const hoursAgo = (now.getTime() - pastRecent.getTime()) / 3600000;
     if (hoursAgo <= 4) {
-      return prevDate;
+      return pastRecent;
     }
   }
 
-  if (nextDate) {
-    return nextDate;
+  if (upcoming) {
+    return upcoming;
   }
 
-  return prevDate;
+  return pastRecent || null;
+}
+
+function findSolarNoon(now, observer) {
+  if (!(now instanceof Date) || !observer) return null;
+  const { start: startOfDay } = localDayBounds(now);
+  if (!(startOfDay instanceof Date)) return null;
+  const sunrise = Astronomy.SearchRiseSet(
+    Astronomy.Body.Sun,
+    observer,
+    +1,
+    startOfDay,
+    1,
+    0
+  );
+  const sunset = Astronomy.SearchRiseSet(
+    Astronomy.Body.Sun,
+    observer,
+    -1,
+    startOfDay,
+    1,
+    0
+  );
+  const sunriseDate = normalizeAstroDate(sunrise);
+  const sunsetDate = normalizeAstroDate(sunset);
+  if (!(sunriseDate instanceof Date) || !(sunsetDate instanceof Date)) {
+    return null;
+  }
+  return new Date((sunriseDate.getTime() + sunsetDate.getTime()) / 2);
 }
 
 async function reverseGeocodeCity(latitude, longitude) {
@@ -948,47 +1074,45 @@ function updateDashboard() {
 
   const refraction = Astronomy.Refraction ? Astronomy.Refraction.Normal : true;
 
-  const moonEquator = Astronomy.Equator(
+  const moonHorizontal = computeBodyHorizontal(
     Astronomy.Body.Moon,
     now,
     observer,
-    true,
-    true
-  );
-  const moonHorizontal = Astronomy.Horizon(
-    now,
-    observer,
-    moonEquator.ra,
-    moonEquator.dec,
     refraction
   );
 
-  ui.moonAltitude.textContent = formatAngle(moonHorizontal.altitude);
-  ui.moonAzimuth.textContent = formatAngle(moonHorizontal.azimuth);
-  if (ui.moonAzimuthDir) {
-    ui.moonAzimuthDir.textContent = azimuthToCompass(moonHorizontal.azimuth);
-  }
+  ui.moonHorizonStatus.textContent = describeHorizonStatus(
+    Astronomy.Body.Moon,
+    observer,
+    now,
+    moonHorizontal.altitude
+  );
+  ui.moonAltitudeInline.textContent = `Altitude: ${formatAngle(
+    moonHorizontal.altitude
+  )}`;
+  ui.moonAzimuthInline.textContent = `Azimuth: ${formatAzimuthLabel(
+    moonHorizontal.azimuth
+  )}`;
 
-  const sunEquator = Astronomy.Equator(
+  const sunHorizontal = computeBodyHorizontal(
     Astronomy.Body.Sun,
     now,
     observer,
-    true,
-    true
-  );
-  const sunHorizontal = Astronomy.Horizon(
-    now,
-    observer,
-    sunEquator.ra,
-    sunEquator.dec,
     refraction
   );
 
-  ui.sunAltitude.textContent = formatAngle(sunHorizontal.altitude);
-  ui.sunAzimuth.textContent = formatAngle(sunHorizontal.azimuth);
-  if (ui.sunAzimuthDir) {
-    ui.sunAzimuthDir.textContent = azimuthToCompass(sunHorizontal.azimuth);
-  }
+  ui.sunHorizonStatus.textContent = describeHorizonStatus(
+    Astronomy.Body.Sun,
+    observer,
+    now,
+    sunHorizontal.altitude
+  );
+  ui.sunAltitudeInline.textContent = `Altitude: ${formatAngle(
+    sunHorizontal.altitude
+  )}`;
+  ui.sunAzimuthInline.textContent = `Azimuth: ${formatAzimuthLabel(
+    sunHorizontal.azimuth
+  )}`;
 
   const moonTilt = computeMoonTiltDegrees(moonHorizontal, sunHorizontal);
   if (Number.isFinite(moonTilt)) {
@@ -1001,15 +1125,18 @@ function updateDashboard() {
   const moonsetDate = pickRiseSet(Astronomy.Body.Moon, observer, -1, now);
   const sunriseDate = pickRiseSet(Astronomy.Body.Sun, observer, +1, now);
   const sunsetDate = pickRiseSet(Astronomy.Body.Sun, observer, -1, now);
+  const solarNoonDate = findSolarNoon(now, observer);
 
   ui.moonriseTime.textContent = formatTime({ date: moonriseDate });
-  ui.moonriseCountdown.textContent = formatCountdown(moonriseDate, now);
+  ui.moonriseCountdown.textContent = formatSkyEventCountdown(moonriseDate, now);
   ui.moonsetTime.textContent = formatTime({ date: moonsetDate });
-  ui.moonsetCountdown.textContent = formatCountdown(moonsetDate, now);
+  ui.moonsetCountdown.textContent = formatSkyEventCountdown(moonsetDate, now);
   ui.sunriseTime.textContent = formatTime({ date: sunriseDate });
-  ui.sunriseCountdown.textContent = formatCountdown(sunriseDate, now);
+  ui.sunriseCountdown.textContent = formatSkyEventCountdown(sunriseDate, now);
   ui.sunsetTime.textContent = formatTime({ date: sunsetDate });
-  ui.sunsetCountdown.textContent = formatCountdown(sunsetDate, now);
+  ui.sunsetCountdown.textContent = formatSkyEventCountdown(sunsetDate, now);
+  ui.solarNoonTime.textContent = formatTime({ date: solarNoonDate });
+  ui.solarNoonCountdown.textContent = formatSkyEventCountdown(solarNoonDate, now);
 
   const sunAltNoRefraction = computeSunAltitude(now, observer, false);
   ui.twilightPhase.textContent = twilightPhaseLabel(sunAltNoRefraction);
@@ -1022,17 +1149,23 @@ function updateDashboard() {
   const astroDawn = findNextSunAltitudeCrossing(-18, +1, now, observer);
 
   ui.civilDuskTime.textContent = formatTime({ date: civilDusk });
-  ui.civilDuskCountdown.textContent = formatCountdown(civilDusk, now);
+  ui.civilDuskCountdown.textContent = formatSkyEventCountdown(civilDusk, now);
   ui.nauticalDuskTime.textContent = formatTime({ date: nauticalDusk });
-  ui.nauticalDuskCountdown.textContent = formatCountdown(nauticalDusk, now);
+  ui.nauticalDuskCountdown.textContent = formatSkyEventCountdown(
+    nauticalDusk,
+    now
+  );
   ui.astroDuskTime.textContent = formatTime({ date: astroDusk });
-  ui.astroDuskCountdown.textContent = formatCountdown(astroDusk, now);
+  ui.astroDuskCountdown.textContent = formatSkyEventCountdown(astroDusk, now);
   ui.civilDawnTime.textContent = formatTime({ date: civilDawn });
-  ui.civilDawnCountdown.textContent = formatCountdown(civilDawn, now);
+  ui.civilDawnCountdown.textContent = formatSkyEventCountdown(civilDawn, now);
   ui.nauticalDawnTime.textContent = formatTime({ date: nauticalDawn });
-  ui.nauticalDawnCountdown.textContent = formatCountdown(nauticalDawn, now);
+  ui.nauticalDawnCountdown.textContent = formatSkyEventCountdown(
+    nauticalDawn,
+    now
+  );
   ui.astroDawnTime.textContent = formatTime({ date: astroDawn });
-  ui.astroDawnCountdown.textContent = formatCountdown(astroDawn, now);
+  ui.astroDawnCountdown.textContent = formatSkyEventCountdown(astroDawn, now);
 
   const eclipseDates = getCachedEclipseDates(now, observer, currentLocation);
   const lunarEclipseDate = eclipseDates.lunarDate;
@@ -1084,6 +1217,7 @@ function updateDashboard() {
   const sunCountdowns = {
     "sunrise-countdown": sunriseDate,
     "sunset-countdown": sunsetDate,
+    "solar-noon-countdown": solarNoonDate,
     "civil-dusk-countdown": civilDusk,
     "nautical-dusk-countdown": nauticalDusk,
     "astro-dusk-countdown": astroDusk,

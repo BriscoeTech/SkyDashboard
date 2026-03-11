@@ -115,6 +115,9 @@
             <div class="phase-details">
               <h3 id="moon-phase-label">--</h3>
               <p id="moon-illumination">Illumination: --</p>
+              <p id="moon-horizon-status" class="phase-meta">--</p>
+              <p id="moon-altitude-inline">Altitude: --</p>
+              <p id="moon-azimuth-inline">Azimuth: --</p>
             </div>
           </div>
           <table class="data-table" id="moon-table">
@@ -149,24 +152,34 @@
                 <td><strong id="lunar-eclipse-countdown" class="countdown">--</strong></td>
                 <td><strong id="lunar-eclipse-delta" class="delta">--</strong></td>
               </tr>
-              <tr data-fixed="bottom">
-                <td>Altitude</td>
-                <td><strong id="moon-altitude">--</strong></td>
-                <td><strong class="countdown placeholder">--</strong></td>
-                <td><strong class="delta placeholder">--</strong></td>
-              </tr>
-              <tr data-fixed="bottom">
-                <td>Azimuth</td>
-                <td><strong id="moon-azimuth">--</strong></td>
-                <td><strong id="moon-azimuth-dir" class="compass">--</strong></td>
-                <td><strong class="delta placeholder">--</strong></td>
-              </tr>
             </tbody>
           </table>
         </section>
 
         <section class="card" aria-labelledby="sun-title">
           <h2 id="sun-title">Sun</h2>
+          <div class="phase">
+            <div class="moon-visual sun-visual" id="sun-visual">
+              <svg class="moon-svg sun-svg" viewBox="0 0 100 100" aria-hidden="true">
+                <circle class="sun-core" cx="50" cy="50" r="22"></circle>
+                <g class="sun-rays">
+                  <rect x="48" y="6" width="4" height="16" rx="2"></rect>
+                  <rect x="48" y="78" width="4" height="16" rx="2"></rect>
+                  <rect x="78" y="48" width="16" height="4" rx="2"></rect>
+                  <rect x="6" y="48" width="16" height="4" rx="2"></rect>
+                  <rect x="48" y="6" width="4" height="16" rx="2" transform="rotate(45 50 50)"></rect>
+                  <rect x="48" y="6" width="4" height="16" rx="2" transform="rotate(90 50 50)"></rect>
+                  <rect x="48" y="6" width="4" height="16" rx="2" transform="rotate(135 50 50)"></rect>
+                  <rect x="48" y="6" width="4" height="16" rx="2" transform="rotate(225 50 50)"></rect>
+                </g>
+              </svg>
+            </div>
+            <div class="phase-details">
+              <p id="sun-horizon-status" class="phase-meta">--</p>
+              <p id="sun-altitude-inline">Altitude: --</p>
+              <p id="sun-azimuth-inline">Azimuth: --</p>
+            </div>
+          </div>
           <table class="data-table" id="sun-table">
             <tbody>
               <tr>
@@ -180,6 +193,12 @@
                 <td><strong id="sunset-time">--</strong></td>
                 <td><strong id="sunset-countdown" class="countdown">--</strong></td>
                 <td><strong id="sunset-delta" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Solar Noon</td>
+                <td><strong id="solar-noon-time">--</strong></td>
+                <td><strong id="solar-noon-countdown" class="countdown">--</strong></td>
+                <td><strong id="solar-noon-delta" class="delta">--</strong></td>
               </tr>
               <tr>
                 <td>Civil Dusk</td>
@@ -234,18 +253,6 @@
                 <td><strong id="solar-eclipse-time">--</strong></td>
                 <td><strong id="solar-eclipse-countdown" class="countdown">--</strong></td>
                 <td><strong id="solar-eclipse-delta" class="delta">--</strong></td>
-              </tr>
-              <tr data-fixed="bottom">
-                <td>Altitude</td>
-                <td><strong id="sun-altitude">--</strong></td>
-                <td><strong class="countdown placeholder">--</strong></td>
-                <td><strong class="delta placeholder">--</strong></td>
-              </tr>
-              <tr data-fixed="bottom">
-                <td>Azimuth</td>
-                <td><strong id="sun-azimuth">--</strong></td>
-                <td><strong id="sun-azimuth-dir" class="compass">--</strong></td>
-                <td><strong class="delta placeholder">--</strong></td>
               </tr>
             </tbody>
           </table>
