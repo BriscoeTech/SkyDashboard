@@ -181,7 +181,7 @@ function buildMoonTerminatorPath(phaseDeg, waxing) {
   const alpha = 180 - phaseDeg;
   const k = Math.cos((alpha * Math.PI) / 180);
   if (!Number.isFinite(k)) return "";
-  const dir = waxing ? 1 : -1;
+  const dir = waxing ? -1 : 1;
   const steps = 80;
   const cx = 50;
   const cy = 50;
@@ -705,9 +705,9 @@ function computeMoonTiltDegrees(moonHorizontal, sunHorizontal) {
   };
 
   const rightRaw = {
-    x: up.y * m.z - up.z * m.y,
-    y: up.z * m.x - up.x * m.z,
-    z: up.x * m.y - up.y * m.x,
+    x: m.y * up.z - m.z * up.y,
+    y: m.z * up.x - m.x * up.z,
+    z: m.x * up.y - m.y * up.x,
   };
   const rightMag = Math.hypot(rightRaw.x, rightRaw.y, rightRaw.z);
   if (rightMag < 1e-6) return null;
