@@ -182,7 +182,10 @@ function buildMoonTerminatorPath(phaseDeg, waxing) {
   const alpha = 180 - phaseDeg;
   const k = Math.cos((alpha * Math.PI) / 180);
   if (!Number.isFinite(k)) return "";
-  const dir = waxing ? -1 : 1;
+  // The unrotated SVG is treated as having the bright limb on the right.
+  // Waxing phases must therefore render right-lit before any sky rotation
+  // is applied, or the local tilt will appear flipped by 180 degrees.
+  const dir = waxing ? 1 : -1;
   const steps = 80;
   const cx = 50;
   const cy = 50;
