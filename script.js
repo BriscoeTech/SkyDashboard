@@ -108,6 +108,10 @@ function saveLocation(location) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(location));
 }
 
+function isOffline() {
+  return typeof navigator !== "undefined" && navigator.onLine === false;
+}
+
 function inferLocationSource(location) {
   if (location && (location.source === "gps" || location.source === "city")) {
     return location.source;
@@ -974,6 +978,18 @@ function updateLocationDisplay(location) {
   ui.cachedAt.textContent = new Date(location.cachedAt).toLocaleString();
 }
 
+function getLocationLabel(location) {
+  if (!location) return "location";
+  if (location.city) return location.city;
+  if (
+    Number.isFinite(location.latitude) &&
+    Number.isFinite(location.longitude)
+  ) {
+    return `${formatCoord(location.latitude)}, ${formatCoord(location.longitude)}`;
+  }
+  return "location";
+}
+
 function applyBannerDockState() {
   if (!bannerEl || !bannerDockButton) return;
   bannerEl.classList.toggle("is-docked", bannerDocked);
@@ -1259,22 +1275,28 @@ function setStatus(message) {
   statusEl.textContent = message;
 }
 
-function setLocation(location) {
+function setLocation(location, options = {}) {
+  const { statusMessage } = options;
   const source = inferLocationSource(location);
   const normalizedLocation = { ...location, source };
   currentLocation = normalizedLocation;
   saveLocation(normalizedLocation);
   updateLocationDisplay(normalizedLocation);
-  setStatus(
-    `Using cached ${source} location from ${new Date(
-      normalizedLocation.cachedAt
-    ).toLocaleString()}.`
-  );
+  if (statusMessage) {
+    setStatus(statusMessage);
+  } else {
+    setStatus(
+      `Using ${source} location ${getLocationLabel(normalizedLocation)}.`
+    );
+  }
   updateDashboard();
 }
 
 async function enrichLocationCity(location) {
   if (location.city) return location;
+  if (isOffline()) {
+    return location.source === "gps" ? { ...location, city: "Unknown" } : location;
+  }
   try {
     const city = await reverseGeocodeCity(
       location.latitude,
@@ -1353,8 +1375,22 @@ function getLocation() {
         cachedAt: Date.now(),
         source: "gps",
       };
+      if (isOffline()) {
+        location = { ...location, city: "Unknown" };
+        setLocation(location, {
+          statusMessage: "Using GPS location offline. City unavailable.",
+        });
+        return;
+      }
+
+      setLocation(location, {
+        statusMessage: "Using GPS location. Looking up city name...",
+      });
+
       location = await enrichLocationCity(location);
-      setLocation(location);
+      setLocation(location, {
+        statusMessage: `Using GPS location ${getLocationLabel(location)}.`,
+      });
     },
     (error) => {
       const codeMap = {
@@ -1396,11 +1432,20 @@ bannerDockButton.addEventListener("click", () => {
 
 const cached = loadCachedLocation();
 if (cached) {
+  setLocation(cached, {
+    statusMessage: `Using cached ${inferLocationSource(cached)} location from ${new Date(
+      cached.cachedAt
+    ).toLocaleString()}.`,
+  });
+
   enrichLocationCity(cached).then((updated) => {
     if (updated !== cached) {
-      saveLocation(updated);
+      setLocation(updated, {
+        statusMessage: `Using cached ${inferLocationSource(updated)} location from ${new Date(
+          updated.cachedAt
+        ).toLocaleString()}.`,
+      });
     }
-    setLocation(updated);
   });
 } else {
   updateLocationDisplay(null);

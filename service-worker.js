@@ -1,4 +1,6 @@
-const CACHE_NAME = "skydashboard-v2";
+const CACHE_NAME = "skydashboard-v3";
+const ASTRONOMY_ENGINE_URL =
+  "https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js";
 const PRECACHE = [
   "./",
   "./index.html",
@@ -10,10 +12,17 @@ const PRECACHE = [
   "./icons/icon.png",
   "./icons/icon.ico",
 ];
+const EXTERNAL_PRECACHE = [
+  new Request(ASTRONOMY_ENGINE_URL, { mode: "no-cors" }),
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE))
+    caches
+      .open(CACHE_NAME)
+      .then((cache) => cache.addAll(PRECACHE))
+      .then(() => caches.open(CACHE_NAME))
+      .then((cache) => Promise.all(EXTERNAL_PRECACHE.map((request) => cache.add(request))))
   );
   self.skipWaiting();
 });
@@ -30,7 +39,9 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
-  if (url.origin !== self.location.origin) return;
+  const isSameOrigin = url.origin === self.location.origin;
+  const isAstronomyEngine = event.request.url === ASTRONOMY_ENGINE_URL;
+  if (!isSameOrigin && !isAstronomyEngine) return;
 
   event.respondWith(
     caches.match(event.request).then((cached) => {
