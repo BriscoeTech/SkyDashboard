@@ -1,6 +1,8 @@
 const STORAGE_KEY = "skydashboard.location.v1";
 const TIME_FORMAT_KEY = "skydashboard.timeformat.v1";
 const BANNER_DOCK_KEY = "skydashboard.bannerDocked.v1";
+const SUNSET_CACHE_KEY = "skydashboard.sunsetForecast.v1";
+const SUNSET_WEATHER_ENDPOINT = "https://api.open-meteo.com/v1/forecast";
 const statusEl = document.getElementById("location-status");
 const locationButton = document.getElementById("get-location");
 const cityInput = document.getElementById("city-input");
@@ -11,6 +13,7 @@ const bannerDockButton = document.getElementById("toggle-banner-dock");
 const moonTable = document.getElementById("moon-table");
 const sunTable = document.getElementById("sun-table");
 const observerTable = document.getElementById("observer-table");
+const sunsetRefreshButton = document.getElementById("sunset-refresh");
 
 const ui = {
   moonriseTime: document.getElementById("moonrise-time"),
@@ -64,6 +67,33 @@ const ui = {
   lat: document.getElementById("lat"),
   lon: document.getElementById("lon"),
   cachedAt: document.getElementById("cached-at"),
+  sunsetCard: document.querySelector(".sunset-card"),
+  sunsetScoreLabel: document.getElementById("sunset-score-label"),
+  sunsetTimeInline: document.getElementById("sunset-time-inline"),
+  sunsetRankInline: document.getElementById("sunset-rank-inline"),
+  sunsetUpdatedInline: document.getElementById("sunset-updated-inline"),
+  sunsetHeaderUpdated: document.getElementById("sunset-header-updated"),
+  sunsetWeatherHour: document.getElementById("sunset-weather-hour"),
+  sunsetWeatherModel: document.getElementById("sunset-weather-model"),
+  sunsetOverallLabel: document.getElementById("sunset-overall-label"),
+  sunsetOverallScore: document.getElementById("sunset-overall-score"),
+  sunsetOverallTier: document.getElementById("sunset-overall-tier"),
+  sunsetCloudsValue: document.getElementById("sunset-clouds-value"),
+  sunsetCloudsScore: document.getElementById("sunset-clouds-score"),
+  sunsetCloudsImpact: document.getElementById("sunset-clouds-impact"),
+  sunsetHumidityValue: document.getElementById("sunset-humidity-value"),
+  sunsetHumidityScore: document.getElementById("sunset-humidity-score"),
+  sunsetHumidityImpact: document.getElementById("sunset-humidity-impact"),
+  sunsetVisibilityValue: document.getElementById("sunset-visibility-value"),
+  sunsetVisibilityScore: document.getElementById("sunset-visibility-score"),
+  sunsetVisibilityImpact: document.getElementById("sunset-visibility-impact"),
+  sunsetWindValue: document.getElementById("sunset-wind-value"),
+  sunsetWindScore: document.getElementById("sunset-wind-score"),
+  sunsetWindImpact: document.getElementById("sunset-wind-impact"),
+  sunsetRainValue: document.getElementById("sunset-rain-value"),
+  sunsetRainScore: document.getElementById("sunset-rain-score"),
+  sunsetRainImpact: document.getElementById("sunset-rain-impact"),
+  sunsetFetchStatus: document.getElementById("sunset-fetch-status"),
 };
 
 let currentLocation = null;
@@ -74,6 +104,13 @@ let eclipseCache = {
   computedAt: 0,
   lunarDate: null,
   solarDate: null,
+};
+let sunsetForecastState = {
+  requestKey: null,
+  status: "idle",
+  data: null,
+  error: "",
+  lastFetchedAt: 0,
 };
 
 function loadTimeFormat() {
@@ -92,6 +129,20 @@ function loadBannerDocked() {
 
 function saveBannerDocked(value) {
   localStorage.setItem(BANNER_DOCK_KEY, value ? "true" : "false");
+}
+
+function loadSunsetForecastCache() {
+  const raw = localStorage.getItem(SUNSET_CACHE_KEY);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch (err) {
+    return null;
+  }
+}
+
+function saveSunsetForecastCache(value) {
+  localStorage.setItem(SUNSET_CACHE_KEY, JSON.stringify(value));
 }
 
 function loadCachedLocation() {
@@ -304,6 +355,58 @@ function formatDaysUntil(targetDate, now) {
   const diffDays = (targetDate.getTime() - now.getTime()) / 86400000;
   if (Math.abs(diffDays) < 0.01) return "Now";
   return `${diffDays.toFixed(1)}d`;
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function formatLocalDateKey(date) {
+  if (!(date instanceof Date)) return "unknown";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseOffsetDate(dateTimeText, utcOffsetSeconds) {
+  if (typeof dateTimeText !== "string") return null;
+  const match = dateTimeText.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/
+  );
+  if (!match) return null;
+  const [, year, month, day, hour, minute, second = "0"] = match;
+  const utcMs =
+    Date.UTC(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second)
+    ) - utcOffsetSeconds * 1000;
+  return new Date(utcMs);
+}
+
+function formatScore(score) {
+  if (!Number.isFinite(score)) return "--";
+  return `${Math.round(score)}/100`;
+}
+
+function formatImpact(impact) {
+  if (!Number.isFinite(impact)) return "--";
+  return `+${impact.toFixed(1)}`;
+}
+
+function formatShortDateTime(date) {
+  if (!(date instanceof Date)) return "--";
+  return date.toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: !use24Hour,
+  });
 }
 
 function normalizeAstroDate(value) {
@@ -860,6 +963,391 @@ function getCachedEclipseDates(now, observer, location) {
   };
 }
 
+function sunsetLocationKey(location) {
+  if (!location) return "none";
+  const lat = Number.isFinite(location.latitude) ? location.latitude.toFixed(3) : "na";
+  const lon = Number.isFinite(location.longitude) ? location.longitude.toFixed(3) : "na";
+  return `${lat}|${lon}`;
+}
+
+function sunsetRequestKey(location, dayKey) {
+  return `${sunsetLocationKey(location)}|${dayKey}`;
+}
+
+function scoreByTargetRange(value, target, falloff, minScore = 0) {
+  if (!Number.isFinite(value)) return minScore;
+  return clamp(100 - Math.abs(value - target) * falloff, minScore, 100);
+}
+
+function rankSunsetScore(score) {
+  if (score >= 80) return { key: "amazing", label: "Amazing", emoji: "FIRE" };
+  if (score >= 60) return { key: "good", label: "Good", emoji: "GLOW" };
+  if (score >= 30) return { key: "decent", label: "Decent", emoji: "WARM" };
+  return { key: "poor", label: "Poor", emoji: "DIM" };
+}
+
+function scoreSunsetFactors(sample) {
+  const lowClouds = Number(sample.cloud_cover_low);
+  const midClouds = Number(sample.cloud_cover_mid);
+  const highClouds = Number(sample.cloud_cover_high);
+  const humidity = Number(sample.relative_humidity_2m);
+  const visibilityKm = Number(sample.visibility) / 1000;
+  const windKph = Number(sample.wind_speed_10m);
+  const rainMm = Number(sample.precipitation);
+  const rainChance = Number(sample.precipitation_probability);
+  const requiredValues = [
+    lowClouds,
+    midClouds,
+    highClouds,
+    humidity,
+    visibilityKm,
+    windKph,
+    rainMm,
+    rainChance,
+  ];
+  if (requiredValues.some((value) => !Number.isFinite(value))) {
+    throw new Error("Forecast missing required sunset factors");
+  }
+
+  const cloudsScore =
+    scoreByTargetRange(lowClouds, 18, 3.2) * 0.45 +
+    scoreByTargetRange(midClouds, 42, 2.1) * 0.35 +
+    scoreByTargetRange(highClouds, 32, 2.5) * 0.2;
+  const humidityScore = scoreByTargetRange(humidity, 58, 2.1);
+  const visibilityScore = clamp(((visibilityKm - 4) / 20) * 100, 0, 100);
+  const windScore =
+    windKph < 4
+      ? clamp((windKph / 4) * 65, 0, 65)
+      : windKph <= 18
+        ? clamp(65 + ((18 - Math.abs(windKph - 11)) / 14) * 35, 0, 100)
+        : clamp(100 - (windKph - 18) * 5, 0, 100);
+  const rainPenalty = clamp(rainMm * 24 + rainChance * 0.55, 0, 100);
+  const rainScore = 100 - rainPenalty;
+
+  const factors = [
+    {
+      key: "clouds",
+      label: "Clouds",
+      value: `L ${Math.round(lowClouds)}% M ${Math.round(midClouds)}% H ${Math.round(highClouds)}%`,
+      score: cloudsScore,
+      weight: 0.35,
+    },
+    {
+      key: "humidity",
+      label: "Humidity",
+      value: `${Math.round(humidity)}% RH`,
+      score: humidityScore,
+      weight: 0.2,
+    },
+    {
+      key: "visibility",
+      label: "Visibility",
+      value: `${visibilityKm.toFixed(1)} km`,
+      score: visibilityScore,
+      weight: 0.2,
+    },
+    {
+      key: "wind",
+      label: "Wind",
+      value: `${windKph.toFixed(0)} km/h`,
+      score: windScore,
+      weight: 0.15,
+    },
+    {
+      key: "rain",
+      label: "Rain",
+      value: `${rainMm.toFixed(1)} mm / ${Math.round(rainChance)}%`,
+      score: rainScore,
+      weight: 0.1,
+    },
+  ];
+
+  let total = 0;
+  factors.forEach((factor) => {
+    factor.impact = factor.score * factor.weight;
+    total += factor.impact;
+  });
+  const rank = rankSunsetScore(total);
+
+  return {
+    score: total,
+    rank,
+    factors,
+  };
+}
+
+function hydrateSunsetForecast(data) {
+  if (!data || typeof data !== "object") return null;
+  return {
+    ...data,
+    sunsetDate: data.sunsetDate ? new Date(data.sunsetDate) : null,
+    sample: data.sample
+      ? {
+          ...data.sample,
+          time: data.sample.time ? new Date(data.sample.time) : null,
+        }
+      : null,
+  };
+}
+
+function pickBestSunsetSample(hourly, targetDate, utcOffsetSeconds) {
+  const times = Array.isArray(hourly?.time) ? hourly.time : [];
+  let bestIndex = -1;
+  let bestDiff = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < times.length; i += 1) {
+    const sampleDate = parseOffsetDate(times[i], utcOffsetSeconds);
+    if (!(sampleDate instanceof Date) || Number.isNaN(sampleDate.getTime())) {
+      continue;
+    }
+    const diff = Math.abs(sampleDate.getTime() - targetDate.getTime());
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      bestIndex = i;
+    }
+  }
+  if (bestIndex < 0) return null;
+  return {
+    time: parseOffsetDate(times[bestIndex], utcOffsetSeconds),
+    cloud_cover: hourly.cloud_cover?.[bestIndex],
+    cloud_cover_low: hourly.cloud_cover_low?.[bestIndex],
+    cloud_cover_mid: hourly.cloud_cover_mid?.[bestIndex],
+    cloud_cover_high: hourly.cloud_cover_high?.[bestIndex],
+    relative_humidity_2m: hourly.relative_humidity_2m?.[bestIndex],
+    visibility: hourly.visibility?.[bestIndex],
+    wind_speed_10m: hourly.wind_speed_10m?.[bestIndex],
+    precipitation_probability: hourly.precipitation_probability?.[bestIndex],
+    precipitation: hourly.precipitation?.[bestIndex],
+  };
+}
+
+function renderSunsetFactor(factor) {
+  const valueEl = ui[`sunset${factor.label}Value`];
+  const scoreEl = ui[`sunset${factor.label}Score`];
+  const impactEl = ui[`sunset${factor.label}Impact`];
+  if (valueEl) valueEl.textContent = factor.value;
+  if (scoreEl) scoreEl.textContent = formatScore(factor.score);
+  if (impactEl) impactEl.textContent = formatImpact(factor.impact);
+}
+
+function renderSunsetForecast() {
+  const forecast = sunsetForecastState.data;
+  const sunsetDate = currentLocation
+    ? pickRiseSet(
+        Astronomy.Body.Sun,
+        buildObserver(
+          currentLocation.latitude,
+          currentLocation.longitude,
+          currentLocation.elevation || 0
+        ),
+        -1,
+        new Date()
+      )
+    : null;
+
+  ui.sunsetTimeInline.textContent = `Sunset: ${formatTime({ date: sunsetDate })}`;
+
+  if (!forecast) {
+    ui.sunsetCard?.removeAttribute("data-rank");
+    ui.sunsetScoreLabel.textContent = "--";
+    ui.sunsetRankInline.textContent =
+      sunsetForecastState.error || "Prediction unavailable";
+    ui.sunsetUpdatedInline.textContent =
+      sunsetForecastState.status === "loading"
+        ? "Weather: loading..."
+        : "Weather: waiting for data";
+    ui.sunsetHeaderUpdated.textContent = "Updated: --";
+    ui.sunsetWeatherHour.textContent = "--";
+    ui.sunsetWeatherModel.textContent = "--";
+    ui.sunsetOverallLabel.textContent = "--";
+    ui.sunsetOverallScore.textContent = "--";
+    ui.sunsetOverallTier.textContent = "--";
+    [
+      ["Clouds", "clouds"],
+      ["Humidity", "humidity"],
+      ["Visibility", "visibility"],
+      ["Wind", "wind"],
+      ["Rain", "rain"],
+    ].forEach(([label]) => {
+      ui[`sunset${label}Value`].textContent = "--";
+      ui[`sunset${label}Score`].textContent = "--";
+      ui[`sunset${label}Impact`].textContent = "--";
+    });
+    ui.sunsetFetchStatus.textContent =
+      sunsetForecastState.status === "loading" ? "Loading" : "--";
+    return;
+  }
+
+  ui.sunsetCard?.setAttribute("data-rank", forecast.rank.key);
+  ui.sunsetScoreLabel.textContent = `${Math.round(forecast.score)}/100`;
+  ui.sunsetRankInline.textContent = `${forecast.rank.label} sunset outlook`;
+  ui.sunsetUpdatedInline.textContent = `Weather: ${forecast.summary}`;
+  ui.sunsetWeatherHour.textContent = formatTime({ date: forecast.sample.time });
+  ui.sunsetOverallLabel.textContent = forecast.rank.label;
+  ui.sunsetOverallScore.textContent = formatScore(forecast.score);
+  ui.sunsetOverallTier.textContent = forecast.rank.emoji;
+  forecast.factors.forEach(renderSunsetFactor);
+  const fetchedAtLabel = formatShortDateTime(new Date(forecast.fetchedAt));
+  ui.sunsetHeaderUpdated.textContent = `Updated: ${fetchedAtLabel}`;
+  ui.sunsetFetchStatus.textContent = forecast.cached ? "Cached" : "Live";
+  ui.sunsetWeatherModel.textContent = "Sample";
+}
+
+async function fetchSunsetForecast(location, sunsetDate) {
+  const params = new URLSearchParams({
+    latitude: String(location.latitude),
+    longitude: String(location.longitude),
+    timezone: "auto",
+    forecast_days: "2",
+    hourly:
+      "cloud_cover,cloud_cover_low,cloud_cover_mid,cloud_cover_high,relative_humidity_2m,visibility,wind_speed_10m,precipitation_probability,precipitation",
+    daily: "sunset",
+  });
+  const response = await fetch(`${SUNSET_WEATHER_ENDPOINT}?${params.toString()}`);
+  if (!response.ok) throw new Error("Failed to fetch sunset weather");
+  const payload = await response.json();
+  const utcOffsetSeconds = Number(payload.utc_offset_seconds) || 0;
+  const sunsetSeries = Array.isArray(payload?.daily?.sunset) ? payload.daily.sunset : [];
+  let apiSunsetDate = sunsetDate;
+  if (sunsetSeries.length > 0) {
+    const parsed = parseOffsetDate(sunsetSeries[0], utcOffsetSeconds);
+    if (parsed instanceof Date && !Number.isNaN(parsed.getTime())) {
+      apiSunsetDate = parsed;
+    }
+  }
+  const sample = pickBestSunsetSample(payload.hourly, apiSunsetDate, utcOffsetSeconds);
+  if (!sample || !(sample.time instanceof Date)) {
+    throw new Error("Forecast missing sunset-hour weather");
+  }
+  const scored = scoreSunsetFactors(sample);
+  const summary = `${scored.rank.label} based on sunset-hour conditions`;
+  return {
+    ...scored,
+    sample,
+    sunsetDate: apiSunsetDate,
+    fetchedAt: Date.now(),
+    sourceLabel: payload.timezone_abbreviation || payload.timezone || "Forecast",
+    summary,
+  };
+}
+
+async function ensureSunsetForecast(options = {}) {
+  const force = options.force === true;
+  if (!currentLocation) {
+    sunsetForecastState = {
+      requestKey: null,
+      status: "idle",
+      data: null,
+      error: "Set a location to load weather.",
+      lastFetchedAt: 0,
+    };
+    renderSunsetForecast();
+    return;
+  }
+
+  const now = new Date();
+  const dayKey = formatLocalDateKey(now);
+  const key = sunsetRequestKey(currentLocation, dayKey);
+  const sunsetDate = pickRiseSet(
+    Astronomy.Body.Sun,
+    buildObserver(
+      currentLocation.latitude,
+      currentLocation.longitude,
+      currentLocation.elevation || 0
+    ),
+    -1,
+    now
+  );
+  if (!(sunsetDate instanceof Date)) {
+    sunsetForecastState.error = "Sunset time unavailable for this location.";
+    sunsetForecastState.data = null;
+    renderSunsetForecast();
+    return;
+  }
+
+  if (!force && sunsetForecastState.requestKey === key && sunsetForecastState.data) {
+    renderSunsetForecast();
+    return;
+  }
+
+  const cached = loadSunsetForecastCache();
+  if (
+    !force &&
+    cached &&
+    cached.requestKey === key &&
+    Date.now() - cached.fetchedAt < 60 * 60 * 1000
+  ) {
+    const hydrated = hydrateSunsetForecast(cached.data);
+    sunsetForecastState = {
+      requestKey: key,
+      status: "ready",
+      data: hydrated ? { ...hydrated, cached: true } : null,
+      error: "",
+      lastFetchedAt: cached.fetchedAt,
+    };
+    renderSunsetForecast();
+    if (isOffline()) return;
+  }
+
+  if (isOffline()) {
+    if (!sunsetForecastState.data) {
+      sunsetForecastState = {
+        requestKey: key,
+        status: "error",
+        data: null,
+        error: "Offline. Sunset prediction needs weather data.",
+        lastFetchedAt: 0,
+      };
+    }
+    renderSunsetForecast();
+    return;
+  }
+
+  if (sunsetForecastState.status === "loading" && sunsetForecastState.requestKey === key) {
+    return;
+  }
+
+  sunsetForecastState = {
+    requestKey: key,
+    status: "loading",
+    data: sunsetForecastState.data,
+    error: "",
+    lastFetchedAt: sunsetForecastState.lastFetchedAt,
+  };
+  renderSunsetForecast();
+
+  try {
+    const data = await fetchSunsetForecast(currentLocation, sunsetDate);
+    if (sunsetForecastState.requestKey !== key) {
+      return;
+    }
+    sunsetForecastState = {
+      requestKey: key,
+      status: "ready",
+      data: { ...data, cached: false },
+      error: "",
+      lastFetchedAt: data.fetchedAt,
+    };
+    saveSunsetForecastCache({
+      requestKey: key,
+      fetchedAt: data.fetchedAt,
+      data: sunsetForecastState.data,
+    });
+  } catch (err) {
+    if (sunsetForecastState.requestKey !== key) {
+      return;
+    }
+    sunsetForecastState = {
+      requestKey: key,
+      status: "error",
+      data: sunsetForecastState.data,
+      error: err.message || "Unable to load sunset forecast.",
+      lastFetchedAt: sunsetForecastState.lastFetchedAt,
+    };
+  }
+
+  renderSunsetForecast();
+}
+
 function localDayBounds(date) {
   if (!(date instanceof Date)) {
     return { start: null, end: null };
@@ -1002,9 +1490,17 @@ function applyBannerDockState() {
 }
 
 function updateDashboard() {
-  if (!currentLocation) return;
+  if (!currentLocation) {
+    renderSunsetForecast();
+    return;
+  }
 
   const now = new Date();
+  const dayKey = formatLocalDateKey(now);
+  const sunsetKey = sunsetRequestKey(currentLocation, dayKey);
+  if (sunsetForecastState.requestKey !== sunsetKey || !sunsetForecastState.data) {
+    ensureSunsetForecast();
+  }
   const observer = buildObserver(
     currentLocation.latitude,
     currentLocation.longitude,
@@ -1269,6 +1765,8 @@ function updateDashboard() {
       "solar-eclipse-countdown",
     ]),
   });
+
+  renderSunsetForecast();
 }
 
 function setStatus(message) {
@@ -1290,6 +1788,7 @@ function setLocation(location, options = {}) {
     );
   }
   updateDashboard();
+  ensureSunsetForecast();
 }
 
 async function enrichLocationCity(location) {
@@ -1422,12 +1921,17 @@ timeFormatButton.addEventListener("click", () => {
   saveTimeFormat(use24Hour);
   timeFormatButton.textContent = use24Hour ? "Time: 24h" : "Time: 12h";
   updateDashboard();
+  renderSunsetForecast();
 });
 
 bannerDockButton.addEventListener("click", () => {
   bannerDocked = !bannerDocked;
   saveBannerDocked(bannerDocked);
   applyBannerDockState();
+});
+
+sunsetRefreshButton?.addEventListener("click", () => {
+  ensureSunsetForecast({ force: true });
 });
 
 const cached = loadCachedLocation();
@@ -1457,6 +1961,15 @@ use24Hour = loadTimeFormat();
 timeFormatButton.textContent = use24Hour ? "Time: 24h" : "Time: 12h";
 bannerDocked = loadBannerDocked();
 applyBannerDockState();
+renderSunsetForecast();
+
+window.addEventListener("online", () => {
+  ensureSunsetForecast({ force: true });
+});
+
+window.addEventListener("offline", () => {
+  renderSunsetForecast();
+});
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

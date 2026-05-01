@@ -257,6 +257,84 @@
             </tbody>
           </table>
         </section>
+
+        <section class="card sunset-card" aria-labelledby="sunset-card-title">
+          <div class="card-toolbar">
+            <h2 id="sunset-card-title">Sunset</h2>
+            <div class="card-toolbar-actions">
+              <p id="sunset-header-updated" class="card-toolbar-meta">Updated: --</p>
+              <button id="sunset-refresh" type="button">Refresh</button>
+            </div>
+          </div>
+          <div class="phase">
+            <div class="moon-visual sunset-visual" id="sunset-visual" aria-hidden="true">
+              <svg class="moon-svg sunset-svg" viewBox="0 0 100 100">
+                <defs>
+                  <linearGradient id="sunset-sky-gradient" x1="0%" x2="0%" y1="0%" y2="100%">
+                    <stop offset="0%" stop-color="#102942"></stop>
+                    <stop offset="58%" stop-color="#f28a48"></stop>
+                    <stop offset="100%" stop-color="#3b2b32"></stop>
+                  </linearGradient>
+                </defs>
+                <rect x="0" y="0" width="100" height="100" fill="url(#sunset-sky-gradient)"></rect>
+                <circle class="sunset-disc" cx="50" cy="58" r="18"></circle>
+                <rect class="sunset-horizon" x="0" y="58" width="100" height="42"></rect>
+              </svg>
+            </div>
+            <div class="phase-details">
+              <h3 id="sunset-score-label">--</h3>
+              <p id="sunset-time-inline">Sunset: --</p>
+              <p id="sunset-rank-inline" class="phase-meta">Prediction unavailable</p>
+              <p id="sunset-updated-inline">Weather: waiting for location</p>
+            </div>
+          </div>
+          <table class="data-table" id="sunset-table">
+            <tbody>
+              <tr>
+                <td>Prediction</td>
+                <td><strong id="sunset-overall-label">--</strong></td>
+                <td><strong id="sunset-overall-score" class="countdown">--</strong></td>
+                <td><strong id="sunset-overall-tier" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Clouds</td>
+                <td><strong id="sunset-clouds-value">--</strong></td>
+                <td><strong id="sunset-clouds-score" class="countdown">--</strong></td>
+                <td><strong id="sunset-clouds-impact" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Humidity</td>
+                <td><strong id="sunset-humidity-value">--</strong></td>
+                <td><strong id="sunset-humidity-score" class="countdown">--</strong></td>
+                <td><strong id="sunset-humidity-impact" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Visibility</td>
+                <td><strong id="sunset-visibility-value">--</strong></td>
+                <td><strong id="sunset-visibility-score" class="countdown">--</strong></td>
+                <td><strong id="sunset-visibility-impact" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Wind</td>
+                <td><strong id="sunset-wind-value">--</strong></td>
+                <td><strong id="sunset-wind-score" class="countdown">--</strong></td>
+                <td><strong id="sunset-wind-impact" class="delta">--</strong></td>
+              </tr>
+              <tr>
+                <td>Rain</td>
+                <td><strong id="sunset-rain-value">--</strong></td>
+                <td><strong id="sunset-rain-score" class="countdown">--</strong></td>
+                <td><strong id="sunset-rain-impact" class="delta">--</strong></td>
+              </tr>
+              <tr data-fixed="bottom">
+                <td>Weather Status</td>
+                <td><strong id="sunset-weather-hour">--</strong></td>
+                <td><strong id="sunset-fetch-status" class="countdown">--</strong></td>
+                <td><strong id="sunset-weather-model" class="delta">--</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
       </main>
 
       <div class="footer"></div>
