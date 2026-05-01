@@ -1,4 +1,4 @@
-const CACHE_NAME = "skydashboard-v4";
+const CACHE_NAME = "skydashboard-v5";
 const ASTRONOMY_ENGINE_URL =
   "https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js";
 const PRECACHE = [
@@ -55,13 +55,25 @@ async function cacheFirst(request) {
   return response;
 }
 
+async function precacheExternal(cache) {
+  await Promise.all(
+    EXTERNAL_PRECACHE.map(async (request) => {
+      try {
+        const response = await fetch(request);
+        await cache.put(request, response);
+      } catch {
+        // A failed third-party precache should not block service worker installation.
+      }
+    })
+  );
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE))
-      .then(() => caches.open(CACHE_NAME))
-      .then((cache) => Promise.all(EXTERNAL_PRECACHE.map((request) => cache.add(request))))
+    caches.open(CACHE_NAME).then(async (cache) => {
+      await cache.addAll(PRECACHE);
+      await precacheExternal(cache);
+    })
   );
   self.skipWaiting();
 });
