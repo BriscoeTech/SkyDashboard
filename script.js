@@ -78,9 +78,15 @@ const ui = {
   sunsetOverallLabel: document.getElementById("sunset-overall-label"),
   sunsetOverallScore: document.getElementById("sunset-overall-score"),
   sunsetOverallTier: document.getElementById("sunset-overall-tier"),
-  sunsetCloudsValue: document.getElementById("sunset-clouds-value"),
-  sunsetCloudsScore: document.getElementById("sunset-clouds-score"),
-  sunsetCloudsImpact: document.getElementById("sunset-clouds-impact"),
+  sunsetCloudsLowValue: document.getElementById("sunset-clouds-low-value"),
+  sunsetCloudsLowScore: document.getElementById("sunset-clouds-low-score"),
+  sunsetCloudsLowImpact: document.getElementById("sunset-clouds-low-impact"),
+  sunsetCloudsMidValue: document.getElementById("sunset-clouds-mid-value"),
+  sunsetCloudsMidScore: document.getElementById("sunset-clouds-mid-score"),
+  sunsetCloudsMidImpact: document.getElementById("sunset-clouds-mid-impact"),
+  sunsetCloudsHighValue: document.getElementById("sunset-clouds-high-value"),
+  sunsetCloudsHighScore: document.getElementById("sunset-clouds-high-score"),
+  sunsetCloudsHighImpact: document.getElementById("sunset-clouds-high-impact"),
   sunsetHumidityValue: document.getElementById("sunset-humidity-value"),
   sunsetHumidityScore: document.getElementById("sunset-humidity-score"),
   sunsetHumidityImpact: document.getElementById("sunset-humidity-impact"),
@@ -1009,10 +1015,9 @@ function scoreSunsetFactors(sample) {
     throw new Error("Forecast missing required sunset factors");
   }
 
-  const cloudsScore =
-    scoreByTargetRange(lowClouds, 18, 3.2) * 0.2 +
-    scoreByTargetRange(midClouds, 42, 2.1) * 0.35 +
-    scoreByTargetRange(highClouds, 32, 2.5) * 0.45;
+  const lowCloudScore = scoreByTargetRange(lowClouds, 18, 3.2);
+  const midCloudScore = scoreByTargetRange(midClouds, 42, 2.1);
+  const highCloudScore = scoreByTargetRange(highClouds, 32, 2.5);
   const humidityScore = scoreByTargetRange(humidity, 58, 2.1);
   const visibilityScore = clamp(((visibilityKm - 4) / 20) * 100, 0, 100);
   const windScore =
@@ -1026,11 +1031,25 @@ function scoreSunsetFactors(sample) {
 
   const factors = [
     {
-      key: "clouds",
-      label: "Clouds",
-      value: `L ${Math.round(lowClouds)}% M ${Math.round(midClouds)}% H ${Math.round(highClouds)}%`,
-      score: cloudsScore,
-      weight: 0.4,
+      key: "cloudsLow",
+      label: "CloudsLow",
+      value: `${Math.round(lowClouds)}% cover`,
+      score: lowCloudScore,
+      weight: 0.05,
+    },
+    {
+      key: "cloudsMid",
+      label: "CloudsMid",
+      value: `${Math.round(midClouds)}% cover`,
+      score: midCloudScore,
+      weight: 0.15,
+    },
+    {
+      key: "cloudsHigh",
+      label: "CloudsHigh",
+      value: `${Math.round(highClouds)}% cover`,
+      score: highCloudScore,
+      weight: 0.25,
     },
     {
       key: "humidity",
@@ -1051,7 +1070,7 @@ function scoreSunsetFactors(sample) {
       label: "Wind",
       value: `${windKph.toFixed(0)} km/h`,
       score: windScore,
-      weight: 0.1,
+      weight: 0.05,
     },
     {
       key: "rain",
@@ -1162,7 +1181,9 @@ function renderSunsetForecast() {
     ui.sunsetOverallScore.textContent = "--";
     ui.sunsetOverallTier.textContent = "--";
     [
-      ["Clouds", "clouds"],
+      ["CloudsLow", "cloudsLow"],
+      ["CloudsMid", "cloudsMid"],
+      ["CloudsHigh", "cloudsHigh"],
       ["Humidity", "humidity"],
       ["Visibility", "visibility"],
       ["Wind", "wind"],
