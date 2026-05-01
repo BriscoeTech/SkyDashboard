@@ -1,4 +1,4 @@
-const CACHE_NAME = "skydashboard-v3";
+const CACHE_NAME = "skydashboard-v4";
 const ASTRONOMY_ENGINE_URL =
   "https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js";
 const PRECACHE = [
@@ -15,6 +15,45 @@ const PRECACHE = [
 const EXTERNAL_PRECACHE = [
   new Request(ASTRONOMY_ENGINE_URL, { mode: "no-cors" }),
 ];
+
+function isHtmlRequest(request) {
+  return (
+    request.mode === "navigate" ||
+    (request.headers.get("accept") || "").includes("text/html")
+  );
+}
+
+function isMutableAsset(url) {
+  return (
+    url.pathname.endsWith("/") ||
+    url.pathname.endsWith("/index.html") ||
+    url.pathname.endsWith("/styles.css") ||
+    url.pathname.endsWith("/script.js") ||
+    url.pathname.endsWith("/manifest.json")
+  );
+}
+
+async function networkFirst(request, fallback = "./index.html") {
+  try {
+    const response = await fetch(request);
+    const cache = await caches.open(CACHE_NAME);
+    cache.put(request, response.clone());
+    return response;
+  } catch {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    return caches.match(fallback);
+  }
+}
+
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  const cache = await caches.open(CACHE_NAME);
+  cache.put(request, response.clone());
+  return response;
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -42,15 +81,12 @@ self.addEventListener("fetch", (event) => {
   const isSameOrigin = url.origin === self.location.origin;
   const isAstronomyEngine = event.request.url === ASTRONOMY_ENGINE_URL;
   if (!isSameOrigin && !isAstronomyEngine) return;
+  if (url.pathname.endsWith("/service-worker.js")) return;
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        return response;
-      });
-    })
-  );
+  if (isSameOrigin && (isHtmlRequest(event.request) || isMutableAsset(url))) {
+    event.respondWith(networkFirst(event.request));
+    return;
+  }
+
+  event.respondWith(cacheFirst(event.request));
 });
