@@ -1010,9 +1010,9 @@ function scoreSunsetFactors(sample) {
   }
 
   const cloudsScore =
-    scoreByTargetRange(lowClouds, 18, 3.2) * 0.45 +
+    scoreByTargetRange(lowClouds, 18, 3.2) * 0.2 +
     scoreByTargetRange(midClouds, 42, 2.1) * 0.35 +
-    scoreByTargetRange(highClouds, 32, 2.5) * 0.2;
+    scoreByTargetRange(highClouds, 32, 2.5) * 0.45;
   const humidityScore = scoreByTargetRange(humidity, 58, 2.1);
   const visibilityScore = clamp(((visibilityKm - 4) / 20) * 100, 0, 100);
   const windScore =
@@ -1030,7 +1030,7 @@ function scoreSunsetFactors(sample) {
       label: "Clouds",
       value: `L ${Math.round(lowClouds)}% M ${Math.round(midClouds)}% H ${Math.round(highClouds)}%`,
       score: cloudsScore,
-      weight: 0.35,
+      weight: 0.4,
     },
     {
       key: "humidity",
@@ -1051,7 +1051,7 @@ function scoreSunsetFactors(sample) {
       label: "Wind",
       value: `${windKph.toFixed(0)} km/h`,
       score: windScore,
-      weight: 0.15,
+      weight: 0.1,
     },
     {
       key: "rain",
